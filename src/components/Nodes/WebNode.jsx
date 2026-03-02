@@ -5,6 +5,8 @@ import { useWorkspaceStore } from '../../store/workspaceStore'
 import { normalizeUrl, titleFromUrl, faviconUrl } from '../../utils/urlUtils'
 import WebNodeHeader from './WebNodeHeader'
 
+const WEBVIEW_ZOOM_FACTOR = 0.9
+
 const WebNode = memo(function WebNode({ id, data }) {
   const {
     updateNodeData, removeNode, setActiveNode, resizeNode,
@@ -58,6 +60,14 @@ const WebNode = memo(function WebNode({ id, data }) {
     const wv = webviewRef.current
     if (!wv) return
 
+    const applyZoom = () => {
+      try {
+        wv.setZoomFactor(WEBVIEW_ZOOM_FACTOR)
+      } catch {
+        // no-op: webview may not be ready yet
+      }
+    }
+
     const onTitle   = (e) => {
       updateNodeData(id, { title: e.title, isLoading: false })
       // Also update the active tab's title in the tabs array
@@ -82,7 +92,9 @@ const WebNode = memo(function WebNode({ id, data }) {
     const onStop  = () => {
       updateNodeData(id, { isLoading: false })
       lastNavUrl.current = wv.src
+      applyZoom()
     }
+    const onDomReady = () => applyZoom()
     const onNav = (e) => {
       updateNodeData(id, { url: e.url })
       lastNavUrl.current = e.url
@@ -99,6 +111,7 @@ const WebNode = memo(function WebNode({ id, data }) {
     wv.addEventListener('page-favicon-updated', onFavicon)
     wv.addEventListener('did-start-loading',    onStart)
     wv.addEventListener('did-stop-loading',     onStop)
+    wv.addEventListener('dom-ready',            onDomReady)
     wv.addEventListener('did-navigate',         onNav)
     wv.addEventListener('did-navigate-in-page', onNav)
     wv.addEventListener('did-fail-load',        onFail)
@@ -107,6 +120,7 @@ const WebNode = memo(function WebNode({ id, data }) {
       wv.removeEventListener('page-favicon-updated', onFavicon)
       wv.removeEventListener('did-start-loading',    onStart)
       wv.removeEventListener('did-stop-loading',     onStop)
+      wv.removeEventListener('dom-ready',            onDomReady)
       wv.removeEventListener('did-navigate',         onNav)
       wv.removeEventListener('did-navigate-in-page', onNav)
       wv.removeEventListener('did-fail-load',        onFail)
@@ -209,10 +223,11 @@ const WebNode = memo(function WebNode({ id, data }) {
         {/* Webview area */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           {data.isLoading && <ProgressBar />}
-          <webview ref={webviewRef} style={{ width: '100%', height: '100%' }}
+          <webview
+            ref={webviewRef}
+            style={{ width: '100%', height: '100%' }}
             partition="persist:canvascape"
-            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-            webpreferences="allowRunningInsecureContent=false, javascript=yes, images=yes, defaultFontSize=16, defaultMonospaceFontSize=14, minimumFontSize=12, minimumLogicalFontSize=12"/>
+          />
         </div>
 
         {/* ── Notes panel ── */}

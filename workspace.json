@@ -1,55 +1,11 @@
 {
   "nodes": [
     {
-      "id": "web_1772461510771_q01s",
+      "id": "web_1772466087714_n72r",
       "type": "webNode",
       "position": {
-        "x": -1460.588057180532,
-        "y": -6894.660771252235
-      },
-      "data": {
-        "url": "https://www.youtube.com/",
-        "title": "YouTube",
-        "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
-        "isLoading": false,
-        "workspaceId": "cat_work",
-        "pinned": false,
-        "minimized": false,
-        "createdAt": 1772461510771,
-        "note": "",
-        "isNoteOpen": false,
-        "tabs": [
-          {
-            "url": "https://www.youtube.com/",
-            "title": "YouTube",
-            "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico"
-          }
-        ],
-        "activeTabIdx": 0
-      },
-      "style": {
-        "width": 1280,
-        "height": 856,
-        "zIndex": 118
-      },
-      "zIndex": 135,
-      "dragHandle": ".node-drag-handle",
-      "width": 1280,
-      "height": 856,
-      "selected": false,
-      "positionAbsolute": {
-        "x": -1460.588057180532,
-        "y": -6894.660771252235
-      },
-      "dragging": false,
-      "resizing": false
-    },
-    {
-      "id": "web_1772463223302_c5lp",
-      "type": "webNode",
-      "position": {
-        "x": 647.2521032125562,
-        "y": 124.68384770966051
+        "x": 430.26340349395844,
+        "y": 183.99219358503444
       },
       "data": {
         "url": "https://www.youtube.com/",
@@ -59,7 +15,7 @@
         "workspaceId": "cat_research",
         "pinned": false,
         "minimized": false,
-        "createdAt": 1772463223302,
+        "createdAt": 1772466087714,
         "note": "",
         "isNoteOpen": false,
         "tabs": [
@@ -74,18 +30,12 @@
       "style": {
         "width": 1280,
         "height": 800,
-        "zIndex": 136
+        "zIndex": 165
       },
-      "zIndex": 137,
+      "zIndex": 166,
       "dragHandle": ".node-drag-handle",
       "width": 1280,
-      "height": 800,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 647.2521032125562,
-        "y": 124.68384770966051
-      },
-      "dragging": false
+      "height": 800
     }
   ],
   "edges": [],
@@ -98,6 +48,24 @@
       "emoji": null,
       "sessionHistory": [
         {
+          "id": "hist_1772466085355_cqr",
+          "url": "https://www.youtube.com/",
+          "title": "YouTube",
+          "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
+          "note": "",
+          "closedAt": 1772466085355,
+          "pinned": false
+        },
+        {
+          "id": "hist_1772466081463_g4b",
+          "url": "https://www.youtube.com/",
+          "title": "YouTube",
+          "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
+          "note": "",
+          "closedAt": 1772466081463,
+          "pinned": false
+        },
+        {
           "id": "hist_1772461172136_1kn",
           "url": "https://www.youtube.com/",
           "title": "YouTube",
@@ -108,9 +76,9 @@
         }
       ],
       "viewport": {
-        "x": 528.9601183141375,
-        "y": 490.3490647875018,
-        "zoom": 0.04000000000000003
+        "x": 910.6252887786159,
+        "y": 971.0769014079056,
+        "zoom": 0.8145817661637634
       },
       "origin": {
         "x": 0,
@@ -123,11 +91,21 @@
       "color": "#60A5FA",
       "bg": "rgba(96,165,250,0.08)",
       "emoji": "🔬",
-      "sessionHistory": [],
+      "sessionHistory": [
+        {
+          "id": "hist_1772466083660_i9f",
+          "url": "https://www.youtube.com/",
+          "title": "YouTube",
+          "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
+          "note": "",
+          "closedAt": 1772466083660,
+          "pinned": false
+        }
+      ],
       "viewport": {
-        "x": -455.4597311310929,
-        "y": -62.79216938743812,
-        "zoom": 0.8145817661637652
+        "x": 900.6870075456422,
+        "y": 1117.2166164404157,
+        "zoom": 0.8145817661637638
       },
       "origin": {
         "x": -11146,
@@ -180,5 +158,5 @@
   "filter": "all",
   "aiContextEnabled": true,
   "version": 6,
-  "savedAt": 1772463249049
+  "savedAt": 1772466091500
 }

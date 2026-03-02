@@ -45,11 +45,20 @@ function CanvasInner() {
   // Fly to workspace origin when switching workspaces
   useEffect(() => {
     if (rf && activeWorkspace?.origin) {
+      const savedViewport = activeWorkspace.viewport
+      if (
+        savedViewport &&
+        Number.isFinite(savedViewport.x) &&
+        Number.isFinite(savedViewport.y) &&
+        Number.isFinite(savedViewport.zoom)
+      ) {
+        rf.setViewport(savedViewport, { duration: 600 })
+        return
+      }
+
       const { x, y } = activeWorkspace.origin
-      // Calculate viewport to center on workspace origin
-      // ReactFlow viewport: screenX = nodeX * zoom + viewport.x
-      // To center: viewport.x = screenCenterX - originX * zoom
-      const zoom = 0.5
+      // Default workspace camera: center origin at 90% zoom.
+      const zoom = 0.9
       const vpX = (window.innerWidth / 2) - (x * zoom)
       const vpY = (window.innerHeight / 2) - (y * zoom)
       rf.setViewport({ x: vpX, y: vpY, zoom }, { duration: 600 })

@@ -11,19 +11,13 @@ app.commandLine.appendSwitch('force-color-profile', 'srgb')
 app.commandLine.appendSwitch('high-dpi-support', '1')
 app.commandLine.appendSwitch('enable-font-antialiasing')
 app.commandLine.appendSwitch('enable-lcd-text')
+// Webview paint stability on some Windows GPU/driver stacks.
+if (process.platform === 'win32') app.disableHardwareAcceleration()
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
 
 const isDev = !app.isPackaged
-
-// ─── Desktop UA ───────────────────────────────────────────────────────────────
-// A real Windows desktop Chrome UA. This tells every website to render its full
-// laptop layout — no mobile, no tablet, no "lite" version.
-const DESKTOP_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
-  'AppleWebKit/537.36 (KHTML, like Gecko) ' +
-  'Chrome/124.0.0.0 Safari/537.36'
 
 // ─── Persistence path ─────────────────────────────────────────────────────────
 const WORKSPACE_DIR  = path.join(os.homedir(), 'Documents', 'Canvascape')
@@ -39,22 +33,10 @@ function ensureWorkspaceDir() {
 let mainWindow
 
 function createWindow() {
-  // Set UA on the partition SESSION before any webview is created.
-  // Every HTTP request from every webview using 'persist:canvascape' carries
-  // the desktop UA from byte one — before did-attach-webview even fires.
+  // Ensure the partition is initialized before any webview is attached.
   const webviewSession = session.fromPartition('persist:canvascape')
-  webviewSession.setUserAgent(DESKTOP_UA)
-
-  // Strip client-hint headers that reveal a touch/small viewport to servers.
-  webviewSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    const headers = { ...details.requestHeaders }
-    delete headers['Sec-CH-UA-Mobile']
-    delete headers['Sec-CH-UA-Platform-Version']
-    delete headers['Viewport-Width']
-    delete headers['Width']
-    headers['User-Agent'] = DESKTOP_UA
-    callback({ requestHeaders: headers })
-  })
+  // Avoid stale HTTP artifacts from earlier UA/renderer experiments.
+  webviewSession.clearCache().catch(() => {})
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -82,19 +64,12 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
-
-  // ── will-attach-webview: set UA before the process is created ─────────────
+  // will-attach-webview
   mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
-    webPreferences.userAgent = DESKTOP_UA
     params.partition = 'persist:canvascape'
   })
-
-  // ── did-attach-webview: belt-and-suspenders UA + all interaction wiring ────
+  // did-attach-webview: interaction wiring
   mainWindow.webContents.on('did-attach-webview', (event, webContents) => {
-
-    // Override UA one final time after attach — covers edge cases where
-    // will-attach-webview wasn't honoured by the running Electron version.
-    webContents.setUserAgent(DESKTOP_UA)
 
     // ── Right-click context menu ──────────────────────────────────────────────
     // Electron webviews do NOT show any context menu by default. The 'context-menu'
@@ -290,3 +265,4 @@ ipcMain.on('window:maximize', (event) => {
   if (target.isMaximized()) target.unmaximize()
   else target.maximize()
 })
+
