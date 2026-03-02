@@ -27,6 +27,7 @@ const _save = debounce(async (state) => {
       edges: state.edges,
       viewport: state.viewport,
       categories: state.categories,
+      theme: state.theme,
       version: 2,
       savedAt: Date.now(),
     })
@@ -42,13 +43,19 @@ export const useWorkspaceStore = create((set, get) => ({
   isLoading:    true,
 
   categories:      DEFAULT_CATEGORIES,
-  filter:          'all',   // 'today' | 'week' | 'all'
+  filter:          'all',
   isSidebarOpen:   true,
   isComposerOpen:  false,
+  theme:           'dark',   // 'dark' | 'light'
 
   // ── ReactFlow wiring ────────────────────────────────────────────────────────
   onNodesChange: (changes) => {
-    set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }))
+    set((s) => {
+      const updated = applyNodeChanges(changes, s.nodes)
+      // Re-apply our zIndex after ReactFlow processes changes (it can strip it)
+      const zMap = Object.fromEntries(s.nodes.map(n => [n.id, n.zIndex]))
+      return { nodes: updated.map(n => zMap[n.id] != null ? { ...n, zIndex: zMap[n.id] } : n) }
+    })
     _save(get())
   },
   onEdgesChange: (changes) => {
@@ -70,6 +77,7 @@ export const useWorkspaceStore = create((set, get) => ({
   addWebNode: ({ url, title, favicon, position, categoryId } = {}) => {
     const id = `web_${Date.now()}_${Math.random().toString(36).slice(2,6)}`
     const pos = position ?? { x: 200 + Math.random() * 280, y: 100 + Math.random() * 200 }
+    const z = nextZ()
     const node = {
       id,
       type: 'webNode',
@@ -81,10 +89,11 @@ export const useWorkspaceStore = create((set, get) => ({
         isLoading:  true,
         categoryId: categoryId ?? null,
         pinned:     false,
+        minimized:  false,
         createdAt:  Date.now(),
       },
-      style:      { width: 680, height: 480 },
-      zIndex:     nextZ(),
+      style:      { width: 680, height: 480, zIndex: z },
+      zIndex:     z,
       dragHandle: '.node-drag-handle',
     }
     set((s) => ({ nodes: [...s.nodes, node], activeNodeId: id }))
@@ -127,12 +136,39 @@ export const useWorkspaceStore = create((set, get) => ({
   duplicateNode: (id) => {
     const src = get().nodes.find((n) => n.id === id)
     if (!src) return
-    const dup = { ...src, id: `web_${Date.now()}`, position: { x: src.position.x + 40, y: src.position.y + 40 }, zIndex: nextZ(), data: { ...src.data, createdAt: Date.now(), pinned: false } }
+    const dup = { ...src, id: `web_${Date.now()}`, position: { x: src.position.x + 40, y: src.position.y + 40 }, zIndex: nextZ(), data: { ...src.data, createdAt: Date.now(), pinned: false, minimized: false } }
     set((s) => ({ nodes: [...s.nodes, dup] }))
     _save(get())
   },
   togglePin: (id) => {
     set((s) => ({ nodes: s.nodes.map((n) => n.id === id ? { ...n, data: { ...n.data, pinned: !n.data.pinned } } : n) }))
+    _save(get())
+  },
+  toggleMinimize: (id) => {
+    const z = nextZ()
+    set((s) => ({
+      activeNodeId: id,
+      nodes: s.nodes.map((n) => {
+        if (n.id !== id) return n
+        const willMinimize = !n.data.minimized
+        return {
+          ...n,
+          zIndex: z,
+          data: {
+            ...n.data,
+            minimized:   willMinimize,
+            _fullWidth:  willMinimize ? (n.style?.width  ?? 680) : n.data._fullWidth,
+            _fullHeight: willMinimize ? (n.style?.height ?? 480) : n.data._fullHeight,
+          },
+          style: {
+            ...n.style,
+            zIndex: z,
+            width:  willMinimize ? 160 : (n.data._fullWidth  ?? 680),
+            height: willMinimize ? 200 : (n.data._fullHeight ?? 480),
+          },
+        }
+      }),
+    }))
     _save(get())
   },
   assignCategory: (nodeId, categoryId) => {
@@ -164,6 +200,14 @@ export const useWorkspaceStore = create((set, get) => ({
   setFilter:       (f)   => set({ filter: f }),
   toggleSidebar:   ()    => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
   setComposerOpen: (val) => set({ isComposerOpen: val }),
+  toggleTheme:     ()    => {
+    set((s) => {
+      const next = s.theme === 'dark' ? 'light' : 'dark'
+      document.documentElement.setAttribute('data-theme', next)
+      return { theme: next }
+    })
+    _save(get())
+  },
 
   // ── Persistence ─────────────────────────────────────────────────────────────
   loadWorkspace: async () => {
@@ -172,11 +216,14 @@ export const useWorkspaceStore = create((set, get) => ({
       const saved = await window.canvascape.workspace.load()
       if (saved?.nodes?.length) {
         _zCounter = saved.nodes.reduce((m, n) => Math.max(m, n.zIndex ?? 0), 100)
+        const theme = saved.theme ?? 'dark'
+        document.documentElement.setAttribute('data-theme', theme)
         set({
           nodes:      saved.nodes,
           edges:      saved.edges ?? [],
           viewport:   saved.viewport ?? { x: 0, y: 0, zoom: 1 },
           categories: saved.categories ?? DEFAULT_CATEGORIES,
+          theme,
         })
       }
     } catch (e) { console.error('Load failed', e) }

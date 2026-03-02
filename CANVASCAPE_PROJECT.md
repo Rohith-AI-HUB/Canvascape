@@ -8,7 +8,7 @@
 ## 🎯 Vision
 
 - **Nimo Infinity** is Mac-only. Canvascape brings the same concept to Windows.
-- Beautiful, premium **dark** UI — spatial, intelligent, productive.
+- Beautiful, premium **dark AND light** UI — spatial, intelligent, productive.
 - Cards (webviews) float on an infinite canvas. You drag, resize, group, and organize them.
 - Future: AI assistant, dynamic apps, MCP integrations, memory.
 
@@ -35,8 +35,9 @@
 ```
 Canvascape/
 ├── electron/           # Electron main process
+│   └── main.js         # GPU flags, window creation, IPC
 ├── src/
-│   ├── App.jsx         # Root shell, titlebar, layout
+│   ├── App.jsx         # Root shell, titlebar, layout, theme provider
 │   ├── main.jsx        # React entry
 │   ├── components/
 │   │   ├── Canvas/     # CanvasWorkspace.jsx (ReactFlow)
@@ -47,8 +48,8 @@ Canvascape/
 │   ├── hooks/
 │   ├── store/          # workspaceStore.js (Zustand)
 │   ├── styles/
-│   │   └── globals.css # All CSS variables + custom classes
-│   └── utils/          # urlUtils.js
+│   │   └── globals.css # CSS variables (dark/light) + all component styles
+│   └── utils/          # urlUtils.js, debounce.js
 ├── index.html
 ├── package.json
 ├── vite.config.js
@@ -59,51 +60,55 @@ Canvascape/
 
 ## 🎨 Design System
 
-### Color Palette (Dark Theme — UNIFIED v3)
+### Theme System
+- Controlled via `data-theme="dark"` or `data-theme="light"` on `<html>`
+- Set by `toggleTheme()` in workspaceStore — persisted to workspace.json
+- CSS variables defined in `globals.css` under `:root, [data-theme="dark"]` and `[data-theme="light"]`
+- Theme toggle button (sun/moon icon) in sidebar header
+
+### CSS Variables (key ones)
 ```
-Background:   #0E0E12  (near-black — canvas + sidebar + bottom bar all same)
-Surface-1:    #141417  (card/panel bg, WebNode cards)
-Surface-2:    #1C1C24  (elevated: inputs, composer field)
-Surface-3:    #24242E  (hover states)
-Border:       rgba(255,255,255,0.055)
-Border Hover: rgba(255,255,255,0.13)
-Border Focus: rgba(139,92,246,0.45)
-Accent:       #8B5CF6  (electric violet — brand)
-Accent Soft:  #A78BFA
-Accent Bright:#C4B5FD
-Accent Dim:   rgba(139,92,246,0.08-0.2)
-Text-1:       #E8E6F0  (primary — near white)
-Text-2:       #9C99AC  (secondary — muted violet-grey)
-Text-3:       #6B6880  (tertiary — dimmer)
-Hint:         #3A3750  (very dim, labels only)
-Shadow-deep:  #2E2C3A  (near invisible labels)
-Success:      #34D399
-Error:        #F87171
+--c-canvas       Canvas/app background
+--c-bg           Same as canvas
+--c-surface      Card/panel background
+--c-surface2     Inputs, elevated surfaces
+--c-surface3     Hover states
+--c-glass        Backdrop-filtered surfaces (bottom bar, composer)
+--c-border       Default border (rgba white/violet ~7%)
+--c-border-h     Hover border
+--c-border-a     Active/focus border (violet 55%)
+--c-text         Primary text
+--c-text2        Secondary text
+--c-muted        Tertiary/placeholder
+--c-soft         Disabled/very dim
+--c-accent       Brand violet #7B61FF
+--c-accent2      Soft violet #A78BFA
+--c-accent-bg    Accent background tint
+--c-header       WebNode header bg
+--c-header-a     WebNode header bg (active)
+--c-dot          Canvas dot grid color
 ```
 
-### Typography
-- **UI font:** `DM Sans` (loaded via Google Fonts)
-- **Mono:** `JetBrains Mono` for URL bar inputs
-- **Headers:** `Space Grotesk` 600
+### Dark Theme Colors
+```
+Canvas:   #0D0D0F   Surface: #141417   Surface2: #1C1C21
+Text:     #F0EEFF   Muted:   #6B6880   Soft:     #3A3750
+Accent:   #7B61FF   Accent2: #A78BFA
+```
+
+### Light Theme Colors
+```
+Canvas:   #F2F0F8   Surface: #FFFFFF    Surface2: #F5F3FC
+Text:     #1A1628   Muted:   #8B83A8   Soft:     #C4BEDC
+Accent:   #7B61FF   Accent2: #6B50F0
+```
 
 ### Design Language
-- **Canvas background:** Pure `#0E0E12` with subtle dot grid (`rgba(255,255,255,0.07)`)
-- **Sidebar:** Same `#0E0E12` — blends seamlessly into canvas
-- **Cards (WebNode):** `#141417` bg, violet glow ring when active
-- **Active state:** `box-shadow: 0 0 0 1.5px rgba(123,97,255,0.6), 0 0 30px rgba(123,97,255,0.15)`
-- **Borders:** `rgba(255,255,255,0.055–0.07)` ultra-thin
-- **Buttons:** Violet-tinted with hover glow
-- **WebNode header:** macOS-style traffic lights (red/yellow/green), dark `#141417` bg
-- **Titlebar (Win32):** `#0A0A0D` — slightly darker than canvas for hierarchy
-- **Transitions:** 130–200ms ease
-- **Composer panel:** Glass-morphism, violet top-glow gradient line
-
-### Key UI Decisions
-- Sidebar = same bg as canvas → seamless spatial feel (Nimo-style)
-- No harsh light surfaces anywhere
-- Category dots have `box-shadow` glow matching their color
-- Online status indicator (green dot) in sidebar footer
-- "Spaces" label above category tree (like Nimo naming)
+- macOS-style traffic lights on WebNode (14px, with hover SVG icons)
+- Red = Close card, Yellow = Minimize to app card, Green = Reload
+- Traffic light icons appear on group hover (`tlHover` state)
+- Sidebar seamlessly blends into canvas background
+- CSS `data-theme` attribute drives all theming
 
 ---
 
@@ -123,9 +128,14 @@ Error:        #F87171
 | Fit-to-view | ✅ |
 | Loading bar | ✅ |
 | Windows custom titlebar | ✅ |
-| Dark premium UI redesign (v3 — unified dark) | ✅ |
+| Dark premium UI | ✅ |
+| **Light theme** | ✅ (v4) |
+| **Theme toggle** (sidebar header) | ✅ (v4) |
+| **Minimize to app card** (yellow button) | ✅ (v4) |
+| **Traffic lights with SVG icons** | ✅ (v4) |
+| **Trackpad two-finger pan fix** | ✅ (v4) |
+| **Webview blur fix** (GPU flags) | ✅ (v4) |
 | Persistent storage (workspace.json) | ✅ |
-| macOS-style traffic lights on WebNode | ✅ |
 | Context menu | ✅ |
 
 ---
@@ -157,11 +167,13 @@ _(Rohit will add ideas in future sessions — Claude should refer to this sectio
 
 ## 🔧 Known Issues / Tech Debt
 
-- `WinTitleBar` only renders if `window.canvascape.platform === 'win32'` — ensure Electron preload exposes this.
+- `WinTitleBar` in App.jsx only renders if `window.canvascape.platform === 'win32'` — ensure Electron preload exposes this.
 - `ReactFlow` controls hidden via CSS; custom zoom/fit wired via `useReactFlow`.
 - `canvas:flyto` and `canvas:fitview` use `window.dispatchEvent` for cross-provider communication.
 - BottomBar uses `setComposerOpen` from outside ReactFlowProvider — intentional.
-- Category delete button has `opacity: 0` by default (requires hover on row to appear) — CSS group-hover not available in inline styles; currently using JS onMouseEnter/Leave which doesn't cascade. May need CSS class.
+- `panOnScroll=true` + `zoomOnScroll=false` = trackpad two-finger swipe = PAN. Ctrl+scroll = zoom (browser default). This is correct behavior.
+- Webview blur fix: `force-device-scale-factor=1` in main.js may affect HiDPI sharpness on some monitors — if text looks oversized, remove that flag.
+- Theme is stored in workspace.json and applied on `loadWorkspace()`. On first run (no saved file), defaults to dark.
 
 ---
 
@@ -170,7 +182,8 @@ _(Rohit will add ideas in future sessions — Claude should refer to this sectio
 | Date | Changes |
 |------|---------|
 | 2026-03-02 | Initial project review. Dark premium UI redesign (v2). Created project document. |
-| 2026-03-02 | **UI v3 — Unified Dark Overhaul.** Sidebar, WebNodeHeader, WorkspaceToolbar, App WinTitleBar all converted to consistent dark theme. macOS traffic lights added to WebNode. Category dot glow, "Spaces" label, status dot in sidebar footer. All light/cream surfaces eliminated. |
+| 2026-03-02 | UI v3 — Unified Dark Overhaul. Sidebar, WebNodeHeader, WorkspaceToolbar all dark. macOS traffic lights added. |
+| 2026-03-02 | **UI v4 — Light/Dark theme system, minimize-to-card, traffic light icons, trackpad pan fix, webview blur fix.** |
 
 ---
 
