@@ -1,17 +1,18 @@
-import { useState, useEffect, useRef } from 'react'
-import { AnimatePresence, motion, LayoutGroup } from 'framer-motion'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { motion, LayoutGroup } from 'framer-motion'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 
 export default function CanvasSidebar() {
-  const { nodes, workspaces, activeWorkspaceId, setActiveWorkspaceId, addWebNode, addWorkspace, renameWorkspace, updateWorkspace, removeWorkspace,
-    toggleSidebar, setComposerOpen, restoreFromHistory, getActiveWorkspace } = useWorkspaceStore()
-  const [expanded, setExpanded] = useState(() => new Set(['__none__']))
+  const { nodes, workspaces, activeWorkspaceId, setActiveWorkspaceId, addWorkspace, updateWorkspace, removeWorkspace,
+    setComposerOpen, restoreFromHistory, getActiveWorkspace, groupWorkspaceTabsWithAI, groupAllWorkspacesWithAI, workspaceGroupingStatus } = useWorkspaceStore()
   const [addingCat, setAddingCat] = useState(false)
   const [newLabel,  setNewLabel]  = useState('')
   const [editId,    setEditId]    = useState(null)
   const [editLabel, setEditLabel] = useState('')
   const [showPicker, setShowPicker] = useState(false)
   const [hoveredWs, setHoveredWs] = useState(null)
+  const [isCompactCarousel, setIsCompactCarousel] = useState(false)
+  const sidebarRef = useRef(null)
   const scrollRef = useRef(null)
 
   const activeWorkspace = getActiveWorkspace()
@@ -20,7 +21,6 @@ export default function CanvasSidebar() {
   const filteredNodes = webNodes.filter(n => n.data?.workspaceId === activeWorkspaceId || (!activeWorkspaceId && !n.data?.workspaceId))
   
   const flyTo  = id => window.dispatchEvent(new CustomEvent('canvas:flyto', { detail: { nodeId: id } }))
-  const toggle = id => setExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const commitAdd  = () => { if (newLabel.trim()) addWorkspace(newLabel.trim()); setAddingCat(false); setNewLabel('') }
   const commitEdit = () => {
     if (editLabel.trim() && editId) {
@@ -29,14 +29,48 @@ export default function CanvasSidebar() {
     setEditId(null)
   }
 
-  const allWorkspaces = [...workspaces]
+  const allWorkspaces = workspaces
+  const workspaceMeta = useMemo(() => {
+    const meta = new Map()
+    for (const ws of allWorkspaces) {
+      const wsNodes = nodes.filter((n) => n.data?.workspaceId === ws.id)
+      const wsWebNodes = wsNodes.filter((n) => n.type === 'webNode')
+      meta.set(ws.id, {
+        webCount: wsWebNodes.length,
+        pinnedCount: wsNodes.filter((n) => n.data?.pinned).length,
+        loadingCount: wsWebNodes.filter((n) => n.data?.isLoading).length,
+        previewFavicons: wsWebNodes.map((n) => n.data?.favicon).filter(Boolean).slice(0, 3),
+        previewTitle: wsWebNodes[0]?.data?.title || null,
+      })
+    }
+    return meta
+  }, [allWorkspaces, nodes])
   
   const switchWorkspace = (dir) => {
+    if (!allWorkspaces.length) return
     const idx = allWorkspaces.findIndex(c => c.id === activeWorkspaceId)
+    if (idx < 0) return
     let next = idx + dir
     if (next < 0) next = allWorkspaces.length - 1
     if (next >= allWorkspaces.length) next = 0
     setActiveWorkspaceId(allWorkspaces[next].id)
+  }
+
+  const canCycle = allWorkspaces.length > 1
+  const activeGrouping = workspaceGroupingStatus?.[activeWorkspaceId]
+  const isGroupingActiveWorkspace = activeGrouping?.state === 'running'
+  const isAnyGrouping = Object.values(workspaceGroupingStatus || {}).some((entry) => entry?.state === 'running')
+
+  const workspaceHint = isGroupingActiveWorkspace
+    ? 'AI grouping active workspace...'
+    : activeGrouping?.state === 'done'
+      ? `${activeGrouping.groupedTabs} tabs • ${activeGrouping.groups} groups`
+      : `${allWorkspaces.length} clusters - use Left/Right keys`
+  const onCarouselKeyDown = (e) => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); switchWorkspace(-1) }
+    if (e.key === 'ArrowRight') { e.preventDefault(); switchWorkspace(1) }
+    if (e.key === 'Home' && allWorkspaces.length) { e.preventDefault(); setActiveWorkspaceId(allWorkspaces[0].id) }
+    if (e.key === 'End' && allWorkspaces.length) { e.preventDefault(); setActiveWorkspaceId(allWorkspaces[allWorkspaces.length - 1].id) }
   }
 
   useEffect(() => {
@@ -55,7 +89,23 @@ export default function CanvasSidebar() {
     if (activeEl) {
       activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
     }
-  }, [activeWorkspaceId])
+  }, [activeWorkspaceId, isCompactCarousel, allWorkspaces.length])
+
+  useEffect(() => {
+    const el = sidebarRef.current
+    if (!el) return
+
+    const updateDensity = (w) => setIsCompactCarousel(w < 245)
+    updateDensity(el.clientWidth || 260)
+
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver((entries) => {
+      const width = entries?.[0]?.contentRect?.width
+      if (Number.isFinite(width)) updateDensity(width)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   const PALETTE = [
     { color: '#A78BFA', bg: 'rgba(167,139,250,0.08)' },
@@ -71,15 +121,15 @@ export default function CanvasSidebar() {
   const EMOJIS = ['💼', '🔬', '🏠', '🎨', '📚', '🚀', '🧠', '⚡', '🌟', '🎮', '🍎', '🌈']
 
   return (
-    <div style={{
+    <div ref={sidebarRef} style={{
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
       background: 'var(--s1)', borderRight: '1px solid var(--bd)',
       fontFamily: "'DM Sans', sans-serif",
     }}>
-      {/* ── Pinned Grid ── */}
+      {/* â”€â”€ Pinned Grid â”€â”€ */}
       <PinnedGrid nodes={nodes} onFly={flyTo} sessionHistory={sessionHistory} restoreFromHistory={restoreFromHistory} setComposerOpen={setComposerOpen} />
 
-      {/* ── New Tab Button ── */}
+      {/* â”€â”€ New Tab Button â”€â”€ */}
       <button
         onClick={() => setComposerOpen(true)}
         style={{
@@ -99,7 +149,7 @@ export default function CanvasSidebar() {
         <kbd style={{ marginLeft: 'auto', fontFamily: "'DM Mono', monospace", fontSize: 10, opacity: 0.5, fontWeight: 400 }}>Ctrl+N</kbd>
       </button>
 
-      {/* ── Active Workspace label ── */}
+      {/* â”€â”€ Active Workspace label â”€â”€ */}
       <div style={{ padding: '12px 16px 4px', display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
         {editId === activeWorkspace?.id ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
@@ -205,7 +255,7 @@ export default function CanvasSidebar() {
         )}
       </div>
 
-      {/* ── Tree (Only nodes of active workspace) ── */}
+      {/* â”€â”€ Tree (Only nodes of active workspace) â”€â”€ */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px 12px', scrollbarWidth: 'thin' }}>
         {filteredNodes.length > 0 ? (
           filteredNodes.map(n => <TabRow key={n.id} node={n} onFly={flyTo} accent={activeWorkspace?.color}/>)
@@ -228,105 +278,368 @@ export default function CanvasSidebar() {
         )}
       </div>
 
-      {/* ── Workspaces Switcher (Moved to bottom) ── */}
-      <div style={{ borderTop: '1px solid var(--bd)', padding: '12px 0 8px', background: 'var(--s1)' }}>
-        <div style={{ padding: '0 8px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
-          {/* Previous Arrow */}
-          <button 
-            onClick={() => switchWorkspace(-1)}
-            style={{ width: 24, height: 24, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--t4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--t2)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--t4)'}
-          >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
+      {/* Workspace Rail */}
+      <div style={{
+        borderTop: '1px solid var(--bd)',
+        padding: '10px 10px 9px',
+        background: 'linear-gradient(180deg, var(--s1), var(--s2))'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700, color: 'var(--t3)' }}>
+              Workspaces
+            </div>
+            <div style={{ fontSize: 10.5, color: 'var(--t4)', marginTop: 1 }}>
+              {workspaceHint}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <CarouselNavButton
+              label="Previous workspace"
+              disabled={!canCycle}
+              onClick={() => switchWorkspace(-1)}
+              icon={<path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>}
+            />
+            <CarouselNavButton
+              label="Next workspace"
+              disabled={!canCycle}
+              onClick={() => switchWorkspace(1)}
+              icon={<path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>}
+            />
+            <button
+              aria-label="AI group active workspace tabs"
+              title="AI group active workspace tabs"
+              disabled={isGroupingActiveWorkspace}
+              onClick={() => { groupWorkspaceTabsWithAI(activeWorkspaceId) }}
+              style={{
+                width: 30, height: 30, borderRadius: 9, border: '1px solid var(--bd-a)',
+                background: isGroupingActiveWorkspace ? 'var(--a-bg2)' : 'var(--a-bg)', color: 'var(--a)',
+                cursor: isGroupingActiveWorkspace ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 160ms',
+                boxShadow: isGroupingActiveWorkspace ? '0 0 0 1px var(--a-glow)' : 'inset 0 1px 0 rgba(255,255,255,0.03)',
+                opacity: isGroupingActiveWorkspace ? 0.88 : 1,
+              }}
+              onMouseEnter={e => {
+                if (isGroupingActiveWorkspace) return
+                e.currentTarget.style.background = 'var(--a-bg2)'
+                e.currentTarget.style.boxShadow = '0 6px 16px var(--a-glow)'
+              }}
+              onMouseLeave={e => {
+                if (isGroupingActiveWorkspace) return
+                e.currentTarget.style.background = 'var(--a-bg)'
+                e.currentTarget.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.03)'
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <path d="M3 3h4v4H3V3zm6 0h4v4H9V3zM3 9h4v4H3V9zm6 0h4v4H9V9z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+                <path d="M11.5 1.5v2M10.5 2.5h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <button
+              aria-label="AI group all workspaces"
+              title="AI group all workspaces"
+              disabled={isAnyGrouping}
+              onClick={() => { groupAllWorkspacesWithAI() }}
+              style={{
+                width: 30, height: 30, borderRadius: 9, border: '1px solid var(--bd)',
+                background: 'var(--s1)', color: isAnyGrouping ? 'var(--t4)' : 'var(--t3)', cursor: isAnyGrouping ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 160ms', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)', opacity: isAnyGrouping ? 0.6 : 1,
+              }}
+              onMouseEnter={e => {
+                if (isAnyGrouping) return
+                e.currentTarget.style.background = 'var(--s3)'
+                e.currentTarget.style.color = 'var(--t1)'
+              }}
+              onMouseLeave={e => {
+                if (isAnyGrouping) return
+                e.currentTarget.style.background = 'var(--s1)'
+                e.currentTarget.style.color = 'var(--t3)'
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <path d="M2.5 2.5h5v5h-5v-5zm6 0h5v5h-5v-5zm-6 6h5v5h-5v-5zm6 6h5v-5h-5v5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <button
+              aria-label="Add new workspace"
+              onClick={() => setAddingCat(true)}
+              style={{
+                width: 30, height: 30, borderRadius: 9, border: '1px solid var(--bd-a)',
+                background: 'var(--a-bg)', color: 'var(--a)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 160ms', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--a-bg2)'; e.currentTarget.style.boxShadow = '0 6px 16px var(--a-glow)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--a-bg)'; e.currentTarget.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.03)' }}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
 
-          <div ref={scrollRef} style={{ flex: 1, overflowX: 'auto', scrollbarWidth: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <LayoutGroup id="sidebar-workspaces">
-              {allWorkspaces.map(ws => {
-                const isActive = activeWorkspaceId === ws.id
-                return (
-                <div
+        <div
+          ref={scrollRef}
+          role="tablist"
+          aria-label="Workspace carousel"
+          tabIndex={0}
+          onKeyDown={onCarouselKeyDown}
+          style={{
+            display: 'grid',
+            gridAutoFlow: 'column',
+            gridAutoColumns: isCompactCarousel ? 'minmax(122px, 1fr)' : 'minmax(154px, 1fr)',
+            gap: 8,
+            overflowX: 'auto',
+            padding: '1px 1px 6px',
+            scrollbarWidth: 'thin',
+            scrollSnapType: 'x mandatory',
+          }}
+        >
+          <LayoutGroup id="sidebar-workspaces">
+            {allWorkspaces.map((ws) => {
+              const isActive = activeWorkspaceId === ws.id
+              const meta = workspaceMeta.get(ws.id) ?? {
+                webCount: 0, pinnedCount: 0, loadingCount: 0, previewFavicons: [], previewTitle: null
+              }
+              const wsGrouping = workspaceGroupingStatus?.[ws.id]
+              const wsIsGrouping = wsGrouping?.state === 'running'
+              const wsGrouped = wsGrouping?.state === 'done'
+              const showActions = hoveredWs === ws.id || isActive
+              const canDelete = allWorkspaces.length > 1
+
+              return (
+                <motion.div
                   key={ws.id ?? 'unsorted'}
-                  onClick={() => setActiveWorkspaceId(ws.id)}
+                  role="tab"
+                  aria-selected={isActive}
                   data-active={isActive}
-                  style={{
-                    position: 'relative', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
-                    borderRadius: 10, border: '1px solid transparent',
-                    background: 'transparent',
-                    color: isActive ? (ws.color || 'var(--a)') : 'var(--t3)',
-                    fontSize: 11.5, fontWeight: 700, cursor: 'pointer', transition: 'all 120ms',
-                    whiteSpace: 'nowrap'
+                  title={ws.label}
+                  tabIndex={0}
+                  layout
+                  whileTap={{ scale: 0.985 }}
+                  onClick={() => setActiveWorkspaceId(ws.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setActiveWorkspaceId(ws.id)
+                    }
                   }}
-                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--s2)' }}
-                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+                  onMouseEnter={() => setHoveredWs(ws.id)}
+                  onMouseLeave={() => setHoveredWs((prev) => (prev === ws.id ? null : prev))}
+                  onFocus={() => setHoveredWs(ws.id)}
+                  onBlur={() => setHoveredWs((prev) => (prev === ws.id ? null : prev))}
+                  style={{
+                    position: 'relative',
+                    minHeight: isCompactCarousel ? 92 : 100,
+                    borderRadius: 12,
+                    border: isActive ? `1px solid ${ws.color || 'var(--bd-a)'}` : '1px solid var(--bd)',
+                    background: isActive ? (ws.bg || 'var(--a-bg)') : 'var(--s1)',
+                    color: isActive ? 'var(--t1)' : 'var(--t2)',
+                    padding: isCompactCarousel ? '9px 10px 8px' : '10px 11px 9px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    scrollSnapAlign: 'center',
+                    boxShadow: isActive ? `0 0 0 1px ${ws.color}33, 0 8px 26px ${ws.color}22` : 'inset 0 1px 0 rgba(255,255,255,0.03)',
+                    transition: 'all 180ms',
+                    outline: 'none',
+                  }}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="active-workspace-bg"
                       style={{
-                        position: 'absolute', inset: 0, borderRadius: 10,
-                        background: ws.bg || 'var(--a-bg)',
-                        border: `1px solid ${ws.color || 'var(--bd-a)'}`,
-                        zIndex: -1
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: 12,
+                        background: `linear-gradient(160deg, ${ws.bg || 'var(--a-bg)'}, transparent 90%)`,
+                        pointerEvents: 'none',
                       }}
-                      transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                      transition={{ type: 'spring', bounce: 0.16, duration: 0.45 }}
                     />
                   )}
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: ws.color }} />
-                  {ws.emoji && <span style={{ fontSize: 12 }}>{ws.emoji}</span>}
-                  <span>{ws.label}</span>
-                </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, marginBottom: 7 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: ws.color || 'var(--t4)', flexShrink: 0 }} />
+                    {ws.emoji && <span style={{ fontSize: 12, lineHeight: 1 }}>{ws.emoji}</span>}
+                    <span style={{ fontSize: 11.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {ws.label}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                      {meta.previewFavicons.length ? (
+                        meta.previewFavicons.map((favicon, i) => (
+                          <img
+                            key={`${ws.id}_preview_${i}`}
+                            src={favicon}
+                            alt=""
+                            style={{
+                              width: 15, height: 15, borderRadius: 4, border: '1px solid var(--bd)',
+                              marginLeft: i === 0 ? 0 : -5, background: 'var(--s2)', objectFit: 'cover'
+                            }}
+                            onError={e => { e.currentTarget.style.display = 'none' }}
+                          />
+                        ))
+                      ) : (
+                        <span style={{ fontSize: 10, color: 'var(--t4)' }}>No preview</span>
+                      )}
+                    </div>
+                    {!isCompactCarousel && (
+                      <span style={{ fontSize: 10, color: 'var(--t4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {meta.previewTitle || 'No recent tab'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                    <WorkspaceStat>{meta.webCount} tabs</WorkspaceStat>
+                    {meta.pinnedCount > 0 && <WorkspaceStat>{meta.pinnedCount} pinned</WorkspaceStat>}
+                    {meta.loadingCount > 0 && <WorkspaceStat color="var(--a)">{meta.loadingCount} loading</WorkspaceStat>}
+                    {wsIsGrouping && <WorkspaceStat color="var(--a)">grouping...</WorkspaceStat>}
+                    {wsGrouped && !wsIsGrouping && <WorkspaceStat color="var(--a)">AI grouped</WorkspaceStat>}
+                  </div>
+
+                  <div style={{
+                    position: 'absolute',
+                    top: 7,
+                    right: 7,
+                    display: 'flex',
+                    gap: 3,
+                    opacity: showActions ? 1 : 0,
+                    pointerEvents: showActions ? 'auto' : 'none',
+                    transition: 'opacity 140ms ease',
+                  }}>
+                    <WorkspaceQuickAction
+                      label="AI group workspace tabs"
+                      disabled={wsIsGrouping}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        groupWorkspaceTabsWithAI(ws.id)
+                      }}
+                      icon={<path d="M3 3h4v4H3V3zm6 0h4v4H9V3zM3 9h4v4H3V9zm6 0h4v4H9V9z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>}
+                    />
+                    <WorkspaceQuickAction
+                      label="Rename workspace"
+                      onClick={(e) => { e.stopPropagation(); setEditId(ws.id); setEditLabel(ws.label) }}
+                      icon={<path d="M11 2l3 3-9 9H2v-3l9-9z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>}
+                    />
+                    <WorkspaceQuickAction
+                      label={canDelete ? 'Delete workspace' : 'Cannot delete last workspace'}
+                      disabled={!canDelete}
+                      danger
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (!canDelete) return
+                        if (window.confirm(`Delete workspace "${ws.label}"?`)) removeWorkspace(ws.id)
+                      }}
+                      icon={<path d="M3 4h10M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1m2 0v10a1 1 0 01-1 1H4a1 1 0 01-1-1V4h10z" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/>}
+                    />
+                  </div>
+                </motion.div>
               )
-              })}
-            </LayoutGroup>
-          </div>
-
-          {/* Next Arrow */}
-          <button 
-            onClick={() => switchWorkspace(1)}
-            style={{ width: 24, height: 24, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--t4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--t2)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--t4)'}
-          >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-
-          <div style={{ width: 1, height: 16, background: 'var(--bd)', margin: '0 4px' }} />
-
-          <button
-            onClick={() => setAddingCat(true)}
-            style={{
-              width: 26, height: 26, borderRadius: 13, border: 'none', background: 'var(--a-bg)',
-              color: 'var(--a)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
+            })}
+          </LayoutGroup>
         </div>
 
         {addingCat && (
-          <div style={{ padding: '0 12px 8px' }}>
+          <div style={{ paddingTop: 5 }}>
             <input
-              autoFocus value={newLabel} onChange={e => setNewLabel(e.target.value)}
-              onBlur={commitAdd} onKeyDown={e => e.key === 'Enter' && commitAdd()}
+              autoFocus
+              value={newLabel}
+              onChange={e => setNewLabel(e.target.value)}
+              onBlur={commitAdd}
+              onKeyDown={e => e.key === 'Enter' && commitAdd()}
               placeholder="New workspace..."
               style={{
-                width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--bd-a)',
-                background: 'var(--a-bg)', color: 'var(--t1)', fontSize: 12, outline: 'none'
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: 9,
+                border: '1px solid var(--bd-a)',
+                background: 'var(--a-bg)',
+                color: 'var(--t1)',
+                fontSize: 12,
+                outline: 'none',
               }}
             />
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+function CarouselNavButton({ label, disabled, onClick, icon }) {
+  return (
+    <button
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        width: 30, height: 30, borderRadius: 9, border: '1px solid var(--bd)',
+        background: 'var(--s1)', color: disabled ? 'var(--t4)' : 'var(--t3)',
+        opacity: disabled ? 0.45 : 1, cursor: disabled ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 140ms',
+      }}
+      onMouseEnter={e => {
+        if (disabled) return
+        e.currentTarget.style.background = 'var(--s3)'
+        e.currentTarget.style.color = 'var(--t1)'
+      }}
+      onMouseLeave={e => {
+        if (disabled) return
+        e.currentTarget.style.background = 'var(--s1)'
+        e.currentTarget.style.color = 'var(--t3)'
+      }}
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none">{icon}</svg>
+    </button>
+  )
+}
+
+function WorkspaceStat({ children, color = 'var(--t3)' }) {
+  return (
+    <span style={{
+      fontSize: 9.5, fontWeight: 600, color,
+      background: 'var(--s2)', border: '1px solid var(--bd)',
+      borderRadius: 999, padding: '1px 6px', lineHeight: 1.4,
+    }}>
+      {children}
+    </span>
+  )
+}
+
+function WorkspaceQuickAction({ label, onClick, icon, disabled = false, danger = false }) {
+  return (
+    <button
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        width: 19, height: 19, borderRadius: 6, border: '1px solid var(--bd)',
+        background: 'var(--s1)', color: disabled ? 'var(--t4)' : 'var(--t3)',
+        opacity: disabled ? 0.45 : 1, cursor: disabled ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 120ms',
+      }}
+      onMouseEnter={e => {
+        if (disabled) return
+        e.currentTarget.style.background = danger ? 'rgba(248,113,113,0.12)' : 'var(--s3)'
+        e.currentTarget.style.color = danger ? '#F87171' : 'var(--t1)'
+      }}
+      onMouseLeave={e => {
+        if (disabled) return
+        e.currentTarget.style.background = 'var(--s1)'
+        e.currentTarget.style.color = 'var(--t3)'
+      }}
+    >
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="none">{icon}</svg>
+    </button>
   )
 }
 
@@ -425,13 +738,4 @@ function TabRow({ node, onFly, accent }) {
   )
 }
 
-function SbBtn({ onClick, title, children }) {
-  return (
-    <button onClick={onClick} title={title}
-      style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 130ms', fontFamily: 'inherit' }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'var(--s3)'; e.currentTarget.style.color = 'var(--t2)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--t3)' }}>
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">{children}</svg>
-    </button>
-  )
-}
+

@@ -32,7 +32,7 @@ export default function FloatingSearchBar() {
 
   const openUrl = useCallback((rawUrl) => {
     const url = normalizeUrl(rawUrl || input)
-    addWebNode({ url, title: titleFromUrl(url), favicon: faviconUrl(url), position: { x: 200 + Math.random() * 200, y: 100 + Math.random() * 150 } })
+    addWebNode({ url, title: titleFromUrl(url), favicon: faviconUrl(url) })
     setSearchOpen(false); setInput('')
   }, [input, addWebNode, setSearchOpen])
 

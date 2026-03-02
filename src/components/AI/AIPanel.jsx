@@ -108,10 +108,13 @@ export default function AIPanel() {
     aiContextEnabled, setAIContextEnabled,
     aiNewChat, aiSelectConv, aiDeleteConv,
     aiCurrentMessages, aiPushMessage, aiUpdateLastMessage,
-    addIdeNode, nodes, theme, activeWorkspaceId, getActiveWorkspace
+    addIdeNode, nodes, theme, activeWorkspaceId, getActiveWorkspace,
+    groupWorkspaceTabsWithAI, workspaceGroupingStatus,
   } = store
 
   const activeWorkspace = getActiveWorkspace()
+  const activeGrouping = workspaceGroupingStatus?.[activeWorkspaceId]
+  const isGrouping = activeGrouping?.state === 'running'
 
   const [tab, setTab]           = useState('chat')   // 'chat' | 'history' | 'settings'
   const [input, setInput]       = useState('')
@@ -125,6 +128,10 @@ export default function AIPanel() {
   const messages = aiCurrentMessages()
   const activeProv = PROVIDERS.find(p => p.id === aiProvider.active) || PROVIDERS[0]
   const activeProvCfg = aiProvider[aiProvider.active] || {}
+  const providerCaption = `${activeProv.name} · ${activeProvCfg.model || '-'}`
+  const groupingCaption = isGrouping
+    ? ' · grouping tabs...'
+    : (activeGrouping?.state === 'done' ? ` · ${activeGrouping.groups} groups` : '')
 
   // Ensure a conversation exists when opening
   useEffect(() => {
@@ -159,6 +166,7 @@ export default function AIPanel() {
     const text = (overrideText ?? input).trim()
     if (!text || streaming) return
     setInput('')
+    if (taRef.current) taRef.current.style.height = 'auto'
     setError(null)
 
     // Ensure conversation
@@ -236,7 +244,7 @@ export default function AIPanel() {
         style={{
           position: 'fixed', top: 72, right: 14, bottom: 14, zIndex: 200,
           width: `min(${W}px, calc(100vw - 28px))`, maxHeight: 'calc(100vh - 86px)',
-          display: 'flex', flexDirection: 'column',
+          display: 'flex', flexDirection: 'column', minHeight: 0,
           background: surface, border: `1px solid ${border}`, borderRadius: 14,
           boxShadow: d ? '-10px 14px 48px rgba(0,0,0,0.5)' : '-8px 10px 30px rgba(0,0,0,0.08)',
           fontFamily: "'DM Sans', sans-serif",
@@ -255,7 +263,7 @@ export default function AIPanel() {
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', fontFamily: "'Syne', sans-serif", letterSpacing: '-0.03em', lineHeight: 1.2 }}>AI Assistant</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: activeProv.color, flexShrink: 0 }}/>
-                <span style={{ fontSize: 10.5, color: 'var(--t3)' }}>{activeProv.name} · {activeProvCfg.model}</span>
+                <span style={{ fontSize: 10.5, color: 'var(--t3)' }}>{providerCaption}{groupingCaption}</span>
               </div>
             </div>
           </div>
@@ -282,6 +290,11 @@ export default function AIPanel() {
             Canvas
           </button>
 
+          <HdrBtn onClick={() => { if (!isGrouping) groupWorkspaceTabsWithAI(activeWorkspaceId) }} title={isGrouping ? 'Grouping tabs...' : 'AI group tabs in this workspace'} d={d} active={isGrouping}>
+            <path d="M2 2h4v4H2V2zm6 0h4v4H8V2zM2 8h4v4H2V8zm6 0h4v4H8V8z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+            <path d="M10.5 1v2M9.5 2h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          </HdrBtn>
+
           {/* New chat */}
           <HdrBtn onClick={startNewChat} title="New chat" d={d}>
             <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -294,20 +307,20 @@ export default function AIPanel() {
         </div>
 
         {/* ── MAIN CONTENT ────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <AnimatePresence mode="wait">
             {tab === 'chat' && (
-              <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <ChatView messages={messages} streaming={streaming} onSuggest={t => send(t)} isDark={d} bottomRef={bottomRef}/>
               </motion.div>
             )}
             {tab === 'history' && (
-              <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }} style={{ flex: 1, overflow: 'hidden' }}>
+              <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
                 <HistoryView convs={aiConversations} currentId={aiCurrentId} onOpen={openConv} onDelete={id => { aiDeleteConv(id) }} isDark={d} border={border} s2={s2}/>
               </motion.div>
             )}
             {tab === 'settings' && (
-              <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }} style={{ flex: 1, overflow: 'hidden' }}>
+              <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
                 <SettingsView provider={aiProvider} setProvider={setAIProvider} isDark={d} border={border} s2={s2} s3={s3}/>
               </motion.div>
             )}
@@ -398,7 +411,7 @@ export default function AIPanel() {
 function ChatView({ messages, streaming, onSuggest, isDark, bottomRef }) {
   const isEmpty = messages.length === 0
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 10, scrollbarWidth: 'thin' }}>
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 10, scrollbarWidth: 'thin' }}>
       {isEmpty ? (
         <EmptyChat isDark={isDark} onSuggest={onSuggest}/>
       ) : (
@@ -532,7 +545,7 @@ function ThinkDots() {
 // ─────────────────────────────────────────────────────────────────────────────
 function HistoryView({ convs, currentId, onOpen, onDelete, isDark, border, s2 }) {
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 6, scrollbarWidth: 'thin' }}>
+    <div style={{ flex: 1, minHeight: 0, height: '100%', overflowY: 'auto', padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 6, scrollbarWidth: 'thin' }}>
       <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 4 }}>Conversation history</div>
       {convs.length === 0 && (
         <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--t3)', fontSize: 13 }}>No conversations yet</div>
@@ -643,7 +656,7 @@ function SettingsView({ provider, setProvider, isDark, border, s2, s3 }) {
   }, [active, cfg.baseUrl])
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 20, scrollbarWidth: 'thin' }}>
+    <div style={{ flex: 1, minHeight: 0, height: '100%', overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 20, scrollbarWidth: 'thin' }}>
 
       {/* Provider grid */}
       <div>
@@ -799,12 +812,12 @@ function Label({ children }) {
   return <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 8 }}>{children}</div>
 }
 
-function HdrBtn({ onClick, title, d, children }) {
+function HdrBtn({ onClick, title, d, active = false, children }) {
   return (
     <button onClick={onClick} title={title}
-      style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 130ms', padding: 0, flexShrink: 0 }}
+      style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: active ? 'var(--a-bg)' : 'transparent', color: active ? 'var(--a)' : 'var(--t3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 130ms', padding: 0, flexShrink: 0 }}
       onMouseEnter={e => { e.currentTarget.style.background = d ? 'rgba(255,245,220,0.06)' : 'rgba(100,80,40,0.07)'; e.currentTarget.style.color = 'var(--t2)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--t3)' }}>
+      onMouseLeave={e => { e.currentTarget.style.background = active ? 'var(--a-bg)' : 'transparent'; e.currentTarget.style.color = active ? 'var(--a)' : 'var(--t3)' }}>
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">{children}</svg>
     </button>
   )
@@ -864,5 +877,4 @@ function HistoryNavIcon() {
 function SettingsNavIcon() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.5 3.5l1 1M11.5 11.5l1 1M3.5 12.5l1-1M11.5 4.5l1-1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
 }
-
 

@@ -9,6 +9,8 @@ const ACTIONS = [
   { id: 'toggle-sidebar',  label: 'Toggle sidebar',         icon: SidebarIcon, section: 'Actions', shortcut: 'Ctrl+\\' },
   { id: 'toggle-theme',    label: 'Toggle theme',           icon: ThemeIcon,  section: 'Actions', shortcut: null },
   { id: 'new-tab',         label: 'New tab',                icon: PlusIcon,   section: 'Actions', shortcut: 'Ctrl+N' },
+  { id: 'group-tabs',      label: 'AI group active workspace tabs', icon: ClusterIcon, section: 'Actions', shortcut: null },
+  { id: 'group-all-tabs',  label: 'AI group all workspaces', icon: GridIcon, section: 'Actions', shortcut: null },
   { id: 'clear-history',   label: 'Clear session history',  icon: TrashIcon,  section: 'Actions', shortcut: null },
   { id: 'toggle-ai',       label: 'Toggle AI assistant',    icon: SparkleIcon, section: 'Actions', shortcut: 'Ctrl+Shift+A' },
 ]
@@ -19,6 +21,7 @@ export default function CommandPalette() {
     nodes, addWebNode, setActiveNode,
     toggleSidebar, toggleTheme, setComposerOpen,
     getActiveWorkspace, restoreFromHistory, clearHistory,
+    groupWorkspaceTabsWithAI, groupAllWorkspacesWithAI,
     theme,
   } = useWorkspaceStore()
 
@@ -100,6 +103,8 @@ export default function CommandPalette() {
       if (item.id === 'toggle-sidebar') toggleSidebar()
       if (item.id === 'toggle-theme')   toggleTheme()
       if (item.id === 'new-tab')        setComposerOpen(true)
+      if (item.id === 'group-tabs')     groupWorkspaceTabsWithAI(activeWorkspace?.id)
+      if (item.id === 'group-all-tabs') groupAllWorkspacesWithAI()
       if (item.id === 'clear-history')  clearHistory()
       if (item.id === 'toggle-ai')       useWorkspaceStore.getState().toggleAIPanel()
     }
@@ -114,7 +119,7 @@ export default function CommandPalette() {
     if (item.kind === 'history') {
       restoreFromHistory(item)
     }
-  }, [query, addWebNode, toggleSidebar, toggleTheme, setComposerOpen, clearHistory, restoreFromHistory, setCommandOpen, setActiveNode])
+  }, [query, addWebNode, toggleSidebar, toggleTheme, setComposerOpen, clearHistory, restoreFromHistory, setCommandOpen, setActiveNode, groupWorkspaceTabsWithAI, groupAllWorkspacesWithAI, activeWorkspace])
 
   const onKeyDown = useCallback((e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setSelected((s) => Math.min(s + 1, results.length - 1)) }
@@ -381,6 +386,21 @@ function PlusIcon({ size = 13, color = 'currentColor' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <path d="M8 3v10M3 8h10" stroke={color} strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  )
+}
+function ClusterIcon({ size = 13, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path d="M2.5 2.5h4v4h-4v-4zm7 0h4v4h-4v-4zM2.5 9.5h4v4h-4v-4zm7 0h4v4h-4v-4z" stroke={color} strokeWidth="1.2" strokeLinejoin="round"/>
+      <path d="M8 1.5v2M7 2.5h2" stroke={color} strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  )
+}
+function GridIcon({ size = 13, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path d="M2.5 2.5h5v5h-5v-5zm6 0h5v5h-5v-5zm-6 6h5v5h-5v-5zm6 6h5v-5h-5v5z" stroke={color} strokeWidth="1.2" strokeLinejoin="round"/>
     </svg>
   )
 }

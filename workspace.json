@@ -1,21 +1,113 @@
 {
   "nodes": [
     {
-      "id": "web_1772466087714_n72r",
+      "id": "web_1772466777966_5ur9",
       "type": "webNode",
       "position": {
-        "x": 430.26340349395844,
-        "y": 183.99219358503444
+        "x": -6470.694792742254,
+        "y": -4192.833220695051
+      },
+      "data": {
+        "url": "https://apps.apple.com/uy/app/mangapin/id6466486279?see-all=customers-also-bought-apps&platform=iphone",
+        "title": "‎MangaPin - You Might Also Like - App Store",
+        "favicon": "https://apps.apple.com/assets/favicon/favicon-16.png",
+        "isLoading": false,
+        "workspaceId": "ws_1772467696212",
+        "pinned": false,
+        "minimized": false,
+        "createdAt": 1772466777966,
+        "note": "",
+        "isNoteOpen": false,
+        "tabs": [
+          {
+            "url": "https://apps.apple.com/uy/app/mangapin/id6466486279?see-all=customers-also-bought-apps&platform=iphone",
+            "title": "‎MangaPin - You Might Also Like - App Store",
+            "favicon": "https://apps.apple.com/assets/favicon/favicon-16.png"
+          }
+        ],
+        "activeTabIdx": 0,
+        "aiGroup": "App",
+        "aiGroupedAt": 1772469747827
+      },
+      "style": {
+        "width": 1280,
+        "height": 800,
+        "zIndex": 171
+      },
+      "zIndex": 248,
+      "dragHandle": ".node-drag-handle",
+      "width": 1280,
+      "height": 800,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -863.7466812668335,
+        "y": 51.245251688893404
+      },
+      "dragging": false
+    },
+    {
+      "id": "web_1772469605226_7se6",
+      "type": "webNode",
+      "position": {
+        "x": -332.11858407647037,
+        "y": -2462.0014926249823
+      },
+      "data": {
+        "url": "https://www.google.com/",
+        "title": "Google",
+        "favicon": "https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico",
+        "isLoading": false,
+        "workspaceId": "ws_1772467783035",
+        "pinned": false,
+        "minimized": false,
+        "createdAt": 1772469605226,
+        "note": "",
+        "isNoteOpen": false,
+        "tabs": [
+          {
+            "url": "https://www.google.com/",
+            "title": "Google",
+            "favicon": "https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico"
+          }
+        ],
+        "activeTabIdx": 0,
+        "aiGroup": "Search",
+        "aiGroupedAt": 1772469750389,
+        "_fullWidth": 1280,
+        "_fullHeight": 800
+      },
+      "style": {
+        "width": 1280,
+        "height": 800,
+        "zIndex": 245
+      },
+      "zIndex": 251,
+      "dragHandle": ".node-drag-handle",
+      "width": 1280,
+      "height": 800,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 1678.6623306575807,
+        "y": -1100.9210277103903
+      }
+    },
+    {
+      "id": "web_1772469609756_zxfd",
+      "type": "webNode",
+      "position": {
+        "x": 1227.8814159235296,
+        "y": -2462.0014926249823
       },
       "data": {
         "url": "https://www.youtube.com/",
         "title": "YouTube",
         "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
         "isLoading": false,
-        "workspaceId": "cat_research",
+        "workspaceId": "ws_1772467783035",
         "pinned": false,
         "minimized": false,
-        "createdAt": 1772466087714,
+        "createdAt": 1772469609756,
         "note": "",
         "isNoteOpen": false,
         "tabs": [
@@ -25,115 +117,122 @@
             "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico"
           }
         ],
-        "activeTabIdx": 0
+        "activeTabIdx": 0,
+        "aiGroup": "Video",
+        "aiGroupedAt": 1772469750389,
+        "_fullWidth": 1280,
+        "_fullHeight": 800
       },
       "style": {
         "width": 1280,
         "height": 800,
-        "zIndex": 165
+        "zIndex": 247
       },
-      "zIndex": 166,
+      "zIndex": 250,
       "dragHandle": ".node-drag-handle",
       "width": 1280,
-      "height": 800
+      "height": 800,
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "web_1772469611968_b085",
+      "type": "webNode",
+      "position": {
+        "x": -332.11858407647037,
+        "y": -1414.0014926249823
+      },
+      "data": {
+        "url": "https://github.com/",
+        "title": "GitHub · Change is constant. GitHub keeps you ahead. · GitHub",
+        "favicon": "https://github.githubassets.com/favicons/favicon-dark.png",
+        "isLoading": false,
+        "workspaceId": "ws_1772467783035",
+        "pinned": false,
+        "minimized": false,
+        "createdAt": 1772469611968,
+        "note": "",
+        "isNoteOpen": false,
+        "tabs": [
+          {
+            "url": "https://github.com/",
+            "title": "GitHub · Change is constant. GitHub keeps you ahead. · GitHub",
+            "favicon": "https://github.githubassets.com/favicons/favicon-dark.png"
+          }
+        ],
+        "activeTabIdx": 0,
+        "aiGroup": "Code",
+        "aiGroupedAt": 1772469750389,
+        "_fullWidth": 1280,
+        "_fullHeight": 800
+      },
+      "style": {
+        "width": 1280,
+        "height": 800,
+        "zIndex": 246
+      },
+      "zIndex": 249,
+      "dragHandle": ".node-drag-handle",
+      "width": 1280,
+      "height": 800,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 2063.7109345533827,
+        "y": -1099.4321951659936
+      }
     }
   ],
   "edges": [],
   "workspaces": [
     {
-      "id": "cat_work",
-      "label": "Work",
-      "color": "#A78BFA",
-      "bg": "rgba(167,139,250,0.08)",
-      "emoji": null,
-      "sessionHistory": [
-        {
-          "id": "hist_1772466085355_cqr",
-          "url": "https://www.youtube.com/",
-          "title": "YouTube",
-          "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
-          "note": "",
-          "closedAt": 1772466085355,
-          "pinned": false
-        },
-        {
-          "id": "hist_1772466081463_g4b",
-          "url": "https://www.youtube.com/",
-          "title": "YouTube",
-          "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
-          "note": "",
-          "closedAt": 1772466081463,
-          "pinned": false
-        },
-        {
-          "id": "hist_1772461172136_1kn",
-          "url": "https://www.youtube.com/",
-          "title": "YouTube",
-          "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
-          "note": "",
-          "closedAt": 1772461172136,
-          "pinned": false
-        }
-      ],
-      "viewport": {
-        "x": 910.6252887786159,
-        "y": 971.0769014079056,
-        "zoom": 0.8145817661637634
-      },
-      "origin": {
-        "x": 0,
-        "y": 0
-      }
-    },
-    {
-      "id": "cat_research",
-      "label": "Research",
+      "id": "ws_1772467696212",
+      "label": "ME",
       "color": "#60A5FA",
       "bg": "rgba(96,165,250,0.08)",
-      "emoji": "🔬",
       "sessionHistory": [
         {
-          "id": "hist_1772466083660_i9f",
+          "id": "hist_1772469597380_fnd",
           "url": "https://www.youtube.com/",
           "title": "YouTube",
           "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
           "note": "",
-          "closedAt": 1772466083660,
+          "closedAt": 1772469597380,
+          "pinned": false
+        },
+        {
+          "id": "hist_1772467921781_v6i",
+          "url": "https://accounts.google.com/v3/signin/identifier?continue=https%3A%2F%2Fplay.google.com%2Fweb%2Fstore%2Fapps%2Fdetails%3Fid%3Doldringtones.forgionne.retronotificationtones%26hl%3Den_IN%26raii%3Doldringtones.forgionne.retronotificationtones&dsh=S-1005743929%3A1772467151432163&ifkv=ASfE1-pcdWZwgUowDd82yRVVEC9pB_qqTKiydaklhazhBFNZNkeqManQxc7g82VHj1XC5noF992TEA&passive=86400&service=googleplay&flowName=WebLiteSignIn&flowEntry=ServiceLogin",
+          "title": "Google Play",
+          "favicon": "https://accounts.google.com/favicon.ico",
+          "note": "",
+          "closedAt": 1772467921781,
           "pinned": false
         }
       ],
       "viewport": {
-        "x": 900.6870075456422,
-        "y": 1117.2166164404157,
-        "zoom": 0.8145817661637638
-      },
-      "origin": {
-        "x": -11146,
-        "y": -7280
+        "x": 145.98606323910798,
+        "y": 944.5999946752074,
+        "zoom": 0.3560425049751401
       }
     },
     {
-      "id": "cat_personal",
-      "label": "Personal",
-      "color": "#34D399",
-      "bg": "rgba(52,211,153,0.08)",
-      "emoji": "🏠",
+      "id": "ws_1772467783035",
+      "label": "HI",
+      "color": "#60A5FA",
+      "bg": "rgba(96,165,250,0.08)",
       "sessionHistory": [],
       "viewport": {
-        "x": 75,
-        "y": -200,
-        "zoom": 1
-      },
-      "origin": {
-        "x": -10968,
-        "y": 11716
+        "x": -1090.9941734177098,
+        "y": 2025.30234953006,
+        "zoom": 0.7875425189766174
       }
     }
   ],
-  "activeWorkspaceId": "cat_research",
-  "theme": "light",
+  "activeWorkspaceId": "ws_1772467783035",
+  "theme": "dark",
   "aiProvider": {
-    "active": "ollama",
+    "active": "openai",
     "openai": {
       "apiKey": "",
       "model": "gpt-4o"
@@ -148,7 +247,7 @@
     },
     "ollama": {
       "baseUrl": "http://localhost:11434",
-      "model": "llama3.2:3b"
+      "model": "gpt-oss:120b-cloud"
     }
   },
   "aiConversations": [],
@@ -158,5 +257,5 @@
   "filter": "all",
   "aiContextEnabled": true,
   "version": 6,
-  "savedAt": 1772466091500
+  "savedAt": 1772469809529
 }

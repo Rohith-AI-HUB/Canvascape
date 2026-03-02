@@ -33,8 +33,7 @@ export default function ComposerModal() {
 
   const open = useCallback((rawUrl) => {
     const url = normalizeUrl(rawUrl || input)
-    addWebNode({ url, title: titleFromUrl(url), favicon: faviconUrl(url), workspaceId: selCat,
-      position: { x: 160 + Math.random() * 300, y: 80 + Math.random() * 180 } })
+    addWebNode({ url, title: titleFromUrl(url), favicon: faviconUrl(url), workspaceId: selCat })
     setComposerOpen(false); setInput(''); setSelCat(null)
   }, [input, selCat, addWebNode, setComposerOpen])
 

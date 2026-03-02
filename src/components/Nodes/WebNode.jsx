@@ -32,7 +32,8 @@ const WebNode = memo(function WebNode({ id, data }) {
   useEffect(() => {
     const wv = webviewRef.current
     if (!wv) return
-    wv.style.display = isMinimized ? 'none' : 'block'
+    // Electron webview relies on flex display for correct iframe sizing.
+    wv.style.display = isMinimized ? 'none' : 'flex'
   }, [isMinimized])
 
   // Set src ONCE on mount

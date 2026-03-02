@@ -100,6 +100,7 @@ const SUGGESTIONS = [
 const COMMANDS = [
   { cmd: '/clear',   desc: 'Clear current conversation' },
   { cmd: '/new',     desc: 'Start a new conversation' },
+  { cmd: '/group',   desc: 'AI-group tabs in this workspace' },
   { cmd: '/copy',    desc: 'Copy full conversation to clipboard' },
   { cmd: '/help',    desc: 'Show available commands' },
 ]
@@ -122,10 +123,26 @@ function initConvs(data) {
 // Main node
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AICanvasNode({ id, data, selected }) {
-  const { updateNodeData, removeNode, nodes, aiProvider, setAIProvider, aiContextEnabled, setAIContextEnabled, setActiveNode, theme, activeWorkspaceId, getActiveWorkspace } = useWorkspaceStore()
+  const {
+    updateNodeData,
+    removeNode,
+    nodes,
+    aiProvider,
+    setAIProvider,
+    aiContextEnabled,
+    setAIContextEnabled,
+    setActiveNode,
+    theme,
+    activeWorkspaceId,
+    getActiveWorkspace,
+    groupWorkspaceTabsWithAI,
+    workspaceGroupingStatus,
+  } = useWorkspaceStore()
 
   const activeWorkspace = getActiveWorkspace()
   const workspaceId = data.workspaceId || activeWorkspaceId
+  const groupingState = workspaceGroupingStatus?.[workspaceId]
+  const isGrouping = groupingState?.state === 'running'
 
   const init = useMemo(() => initConvs(data), []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -151,6 +168,10 @@ export default function AICanvasNode({ id, data, selected }) {
   const d            = isDark
   const surface      = d ? 'rgba(18,17,14,0.98)' : 'rgba(253,252,248,0.98)'
   const border       = d ? 'rgba(255,245,220,0.09)' : 'rgba(100,80,40,0.13)'
+  const providerCaption = `${activeProv.name} · ${aiProvider[aiProvider.active]?.model || '-'}`
+  const groupingCaption = isGrouping
+    ? ' · grouping tabs...'
+    : (groupingState?.state === 'done' ? ` · ${groupingState.groups} groups` : '')
 
   // Show resize handles when either ReactFlow says selected OR our own isActive is true
   const showResizer = selected || isActive
@@ -253,6 +274,27 @@ export default function AICanvasNode({ id, data, selected }) {
       case '/new':
         newChat()
         break
+      case '/group': {
+        const pushInfo = (content) => {
+          const info = { id: `m_${Date.now()}`, role: 'assistant', ts: Date.now(), content }
+          setConversations(prev => prev.map(cv =>
+            cv.id === activeConv.id
+              ? { ...cv, messages: [...cv.messages, info], updatedAt: Date.now() }
+              : cv
+          ))
+        }
+        groupWorkspaceTabsWithAI(workspaceId)
+          .then((result) => {
+            const summary = result?.ok
+              ? `Grouped ${result.groupedTabs} tabs into ${result.groups} groups.`
+              : (result?.reason === 'no-tabs' ? 'No tabs to group in this workspace.' : 'Could not group tabs.')
+            pushInfo(summary)
+          })
+          .catch((err) => {
+            pushInfo(`⚠ ${err?.message || 'Grouping failed.'}`)
+          })
+        break
+      }
       case '/copy': {
         const text = messages.map(m => `${m.role === 'user' ? 'You' : 'AI'}: ${m.content}`).join('\n\n')
         navigator.clipboard.writeText(text).catch(() => {})
@@ -268,7 +310,7 @@ export default function AICanvasNode({ id, data, selected }) {
       }
       default: break
     }
-  }, [activeConv, messages, updateConv, newChat])
+  }, [activeConv, messages, updateConv, newChat, groupWorkspaceTabsWithAI, workspaceId])
 
   // ── Send ─────────────────────────────────────────────────────────────────────
   const send = useCallback(async (overrideText) => {
@@ -281,6 +323,7 @@ export default function AICanvasNode({ id, data, selected }) {
     }
 
     setInput('')
+    if (taRef.current) taRef.current.style.height = 'auto'
     setError(null)
     setCmdMenu(false)
 
@@ -362,7 +405,7 @@ export default function AICanvasNode({ id, data, selected }) {
         data-nodeid={id}
         onMouseDown={handleCardMouseDown}
         style={{
-          width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+          width: '100%', height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column',
           background: surface,
           border: `1.5px solid ${showResizer ? 'var(--bd-a)' : border}`,
           borderRadius: 16,
@@ -391,7 +434,9 @@ export default function AICanvasNode({ id, data, selected }) {
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)', fontFamily: "'Syne', sans-serif", letterSpacing: '-0.025em', lineHeight: 1.2 }}>AI Chat</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
               <span style={{ width: 4, height: 4, borderRadius: '50%', background: activeProv.color, flexShrink: 0 }}/>
-              <span style={{ fontSize: 9.5, color: 'var(--t3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeProv.name} · {aiProvider[aiProvider.active]?.model || '—'}</span>
+              <span style={{ fontSize: 9.5, color: 'var(--t3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {providerCaption}{groupingCaption}
+              </span>
             </div>
           </div>
 
@@ -400,6 +445,17 @@ export default function AICanvasNode({ id, data, selected }) {
             <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" opacity="0.5"/>
             <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" opacity="0.5"/>
             <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" opacity="0.25"/>
+          </HdrBtn>
+
+          <HdrBtn
+            onMouseDown={e => e.stopPropagation()}
+            onClick={() => { if (!isGrouping) groupWorkspaceTabsWithAI(workspaceId) }}
+            title={isGrouping ? 'Grouping tabs...' : 'AI group tabs in this workspace'}
+            active={isGrouping}
+            d={d}
+          >
+            <path d="M2 2h4v4H2V2zm6 0h4v4H8V2zM2 8h4v4H2V8zm6 0h4v4H8V8z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+            <path d="M10.5 1v2M9.5 2h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
           </HdrBtn>
 
           <HdrBtn onMouseDown={e => e.stopPropagation()} onClick={newChat} title="New conversation" d={d}>
@@ -415,10 +471,22 @@ export default function AICanvasNode({ id, data, selected }) {
         </div>
 
         {/* ── Content ───────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {tab === 'chat'     && <ChatPane messages={messages} streaming={streaming} onSuggest={t => send(t)} isDark={d} border={border} bottomRef={bottomRef} onDeleteMsg={deleteMessage}/>}
-          {tab === 'history'  && <HistoryPane conversations={conversations} activeConvId={activeConvId} onOpen={openConv} onDelete={deleteConv} isDark={d} border={border}/>}
-          {tab === 'settings' && <SettingsPane provider={aiProvider} setProvider={setAIProvider} isDark={d} border={border}/>}
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {tab === 'chat' && (
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <ChatPane messages={messages} streaming={streaming} onSuggest={t => send(t)} isDark={d} border={border} bottomRef={bottomRef} onDeleteMsg={deleteMessage}/>
+            </div>
+          )}
+          {tab === 'history' && (
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <HistoryPane conversations={conversations} activeConvId={activeConvId} onOpen={openConv} onDelete={deleteConv} isDark={d} border={border}/>
+            </div>
+          )}
+          {tab === 'settings' && (
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <SettingsPane provider={aiProvider} setProvider={setAIProvider} isDark={d} border={border}/>
+            </div>
+          )}
         </div>
 
         {/* ── Error ─────────────────────────────────────────────────────────── */}
@@ -512,7 +580,7 @@ function ChatPane({ messages, streaming, onSuggest, isDark, border, bottomRef, o
   return (
     <div
       ref={scrollRef}
-      style={{ flex: 1, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: 8, scrollbarWidth: 'thin' }}
+      style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: 8, scrollbarWidth: 'thin' }}
     >
       {messages.length === 0
         ? <EmptyState isDark={isDark} onSuggest={onSuggest}/>
@@ -540,7 +608,7 @@ function HistoryPane({ conversations, activeConvId, onOpen, onDelete, isDark, bo
   return (
     <div
       ref={scrollRef}
-      style={{ flex: 1, overflowY: 'auto', padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 5, scrollbarWidth: 'thin' }}
+      style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 5, scrollbarWidth: 'thin' }}
       onMouseDown={e => e.stopPropagation()}
     >
       <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 4, paddingLeft: 2 }}>
@@ -649,7 +717,7 @@ function SettingsPane({ provider, setProvider, isDark, border }) {
   return (
     <div
       ref={scrollRef}
-      style={{ flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: 15, scrollbarWidth: 'thin' }}
+      style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: 15, scrollbarWidth: 'thin' }}
       onMouseDown={e => e.stopPropagation()}
     >
       <div>
@@ -881,3 +949,4 @@ function normalizeOllama(rawUrl) {
   if (!url) url = 'http://localhost:11434'
   return url.replace(/\/+$/, '').replace(/\/(v1|api)$/i, '')
 }
+

@@ -8,31 +8,369 @@ const nextZ = () => ++_zCounter
 // ── Unified Canvas constants ──────────────────────────────────────────────────
 export const ACTIVATION_RADIUS = 2000  // canvas units — nodes within this are fully active
 export const FADE_RADIUS = 3000  // canvas units — nodes between ACTIVATION and FADE are transitioning
-const MIN_ORIGIN_SEPARATION = 6000  // minimum distance between workspace origins
 
-// Generate a random origin far from existing ones
-function generateOrigin(existingOrigins) {
-  const maxAttempts = 50
-  for (let i = 0; i < maxAttempts; i++) {
-    const angle = Math.random() * Math.PI * 2
-    const dist = 8000 + Math.random() * 12000
-    const candidate = { x: Math.round(Math.cos(angle) * dist), y: Math.round(Math.sin(angle) * dist) }
-    const tooClose = existingOrigins.some(o => {
-      const dx = o.x - candidate.x, dy = o.y - candidate.y
-      return Math.sqrt(dx * dx + dy * dy) < MIN_ORIGIN_SEPARATION
-    })
-    if (!tooClose) return candidate
-  }
-  // Fallback: place far out
-  const n = existingOrigins.length
-  return { x: n * 10000, y: (n % 2) * 8000 }
-}
+const GRID_GAP_X = 180
+const GRID_GAP_Y = 140
+const GROUP_GAP_X = 280
+const GROUP_GAP_Y = 220
+const GROUP_HEADER_SPACE = 28
+const GROUP_TIMEOUT_MS = 18_000
 
 const DEFAULT_WORKSPACES = [
-  { id: 'ws_work', label: 'Work', color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', emoji: '💼', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 }, origin: { x: 0, y: 0 } },
-  { id: 'ws_research', label: 'Research', color: '#60A5FA', bg: 'rgba(96,165,250,0.08)', emoji: '🔬', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 }, origin: { x: 8000, y: 3000 } },
-  { id: 'ws_personal', label: 'Personal', color: '#34D399', bg: 'rgba(52,211,153,0.08)', emoji: '🏠', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 }, origin: { x: -6000, y: 7000 } },
+  { id: 'ws_work', label: 'Work', color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', emoji: '💼', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } },
+  { id: 'ws_research', label: 'Research', color: '#60A5FA', bg: 'rgba(96,165,250,0.08)', emoji: '🔬', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } },
+  { id: 'ws_personal', label: 'Personal', color: '#34D399', bg: 'rgba(52,211,153,0.08)', emoji: '🏠', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } },
 ]
+
+function nodesInWorkspace(nodes, workspaceId) {
+  return nodes.filter((n) => n.data?.workspaceId === workspaceId)
+}
+
+function clusterCenter(nodes, fallback) {
+  if (!nodes.length) return fallback
+  const total = nodes.reduce((acc, n) => {
+    acc.x += n.position?.x ?? 0
+    acc.y += n.position?.y ?? 0
+    return acc
+  }, { x: 0, y: 0 })
+  return { x: total.x / nodes.length, y: total.y / nodes.length }
+}
+
+function viewportToCanvasCenter(vp) {
+  if (
+    !vp ||
+    !Number.isFinite(vp.x) ||
+    !Number.isFinite(vp.y) ||
+    !Number.isFinite(vp.zoom) ||
+    vp.zoom <= 0
+  ) return null
+
+  const width = typeof window !== 'undefined' ? window.innerWidth : 1920
+  const height = typeof window !== 'undefined' ? window.innerHeight : 1080
+  return {
+    x: -vp.x + (width / 2) / vp.zoom,
+    y: -vp.y + (height / 2) / vp.zoom,
+  }
+}
+
+function clusterSpawnPosition(state, workspaceId) {
+  const wsNodes = nodesInWorkspace(state.nodes, workspaceId)
+  const ws = state.workspaces.find((w) => w.id === workspaceId)
+  const seedCenter = viewportToCanvasCenter(ws?.viewport) ?? state.viewportCenter ?? { x: 0, y: 0 }
+  const center = clusterCenter(wsNodes, seedCenter)
+
+  // Spread new nodes around each workspace cluster.
+  const angle = Math.random() * Math.PI * 2
+  const baseRadius = Math.min(620, 180 + wsNodes.length * 28)
+  const radius = baseRadius + Math.random() * 90
+  const jitter = 50
+
+  return {
+    x: center.x + Math.cos(angle) * radius + (Math.random() - 0.5) * jitter,
+    y: center.y + Math.sin(angle) * radius + (Math.random() - 0.5) * jitter,
+  }
+}
+
+function normalizeOllamaBaseUrl(rawUrl) {
+  let url = String(rawUrl || '').trim()
+  if (!url) url = 'http://localhost:11434'
+  return url.replace(/\/+$/, '').replace(/\/(v1|api)$/i, '')
+}
+
+async function readErrorBody(res) {
+  const text = await res.text().catch(() => '')
+  if (!text) return ''
+  try {
+    const body = JSON.parse(text)
+    return body.error?.message || body.error || text
+  } catch {
+    return text
+  }
+}
+
+function extractJsonChunk(text) {
+  const raw = String(text || '').trim()
+  if (!raw) return ''
+  const fenced = raw.match(/```json\s*([\s\S]*?)```/i)
+  if (fenced?.[1]) return fenced[1].trim()
+  const start = raw.indexOf('{')
+  const end = raw.lastIndexOf('}')
+  if (start >= 0 && end > start) return raw.slice(start, end + 1)
+  return raw
+}
+
+function parseGroupingPayload(rawText, validIds) {
+  const jsonText = extractJsonChunk(rawText)
+  if (!jsonText) return null
+
+  let parsed
+  try {
+    parsed = JSON.parse(jsonText)
+  } catch {
+    return null
+  }
+
+  const groupsRaw = Array.isArray(parsed) ? parsed : parsed.groups
+  if (!Array.isArray(groupsRaw)) return null
+
+  const valid = new Set(validIds)
+  const seen = new Set()
+  const groups = []
+
+  for (const group of groupsRaw) {
+    const rawMembers = group?.tabs ?? group?.ids ?? group?.items ?? []
+    if (!Array.isArray(rawMembers)) continue
+    const tabIds = []
+
+    for (const item of rawMembers) {
+      const id = typeof item === 'string'
+        ? item
+        : (typeof item?.id === 'string' ? item.id : null)
+      if (!id || !valid.has(id) || seen.has(id)) continue
+      seen.add(id)
+      tabIds.push(id)
+    }
+
+    if (!tabIds.length) continue
+    const name = String(group?.name || group?.label || 'Group').trim() || 'Group'
+    groups.push({ name: name.slice(0, 48), tabIds })
+  }
+
+  if (!groups.length) return null
+
+  const unassigned = validIds.filter((id) => !seen.has(id))
+  if (unassigned.length) groups.push({ name: 'Ungrouped', tabIds: unassigned })
+  return groups
+}
+
+function rootDomain(rawUrl) {
+  try {
+    const host = new URL(rawUrl).hostname.replace(/^www\./i, '')
+    const parts = host.split('.')
+    if (parts.length <= 2) return host
+    return parts.slice(-2).join('.')
+  } catch {
+    return ''
+  }
+}
+
+function inferTopic(node) {
+  const text = `${node?.data?.title || ''} ${node?.data?.url || ''}`.toLowerCase()
+  if (/(github|gitlab|stack|docs|developer|api|npm|code|repo)/.test(text)) return 'Development'
+  if (/(youtube|netflix|spotify|music|video|movie|anime|twitch)/.test(text)) return 'Media'
+  if (/(news|blog|article|research|wikipedia|read|journal)/.test(text)) return 'Reading'
+  if (/(amazon|flipkart|shop|store|cart|checkout|deal)/.test(text)) return 'Shopping'
+  if (/(mail|calendar|notion|docs\.google|drive|slack|teams|jira|linear|asana)/.test(text)) return 'Work'
+  if (/(chatgpt|claude|gemini|ollama|openai|anthropic)/.test(text)) return 'AI'
+  return 'General'
+}
+
+function buildFallbackGroups(webNodes) {
+  const byDomain = new Map()
+  for (const node of webNodes) {
+    const key = rootDomain(node.data?.url) || 'misc'
+    const group = byDomain.get(key) || []
+    group.push(node.id)
+    byDomain.set(key, group)
+  }
+
+  if (byDomain.size <= Math.max(1, Math.ceil(webNodes.length * 0.75))) {
+    return [...byDomain.entries()]
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([key, tabIds]) => ({ name: key === 'misc' ? 'General' : key, tabIds }))
+  }
+
+  const byTopic = new Map()
+  for (const node of webNodes) {
+    const key = inferTopic(node)
+    const group = byTopic.get(key) || []
+    group.push(node.id)
+    byTopic.set(key, group)
+  }
+  return [...byTopic.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([name, tabIds]) => ({ name, tabIds }))
+}
+
+function nodeSize(node) {
+  return {
+    w: Math.max(480, Number(node?.style?.width) || 1280),
+    h: Math.max(320, Number(node?.style?.height) || 800),
+  }
+}
+
+function sumUntil(values, endExclusive) {
+  let total = 0
+  for (let i = 0; i < endExclusive; i++) total += values[i] || 0
+  return total
+}
+
+function buildGroupedPositions(groups, webNodes, center) {
+  const nodesById = new Map(webNodes.map((n) => [n.id, n]))
+  const blocks = []
+
+  for (const group of groups) {
+    const nodes = (group.tabIds || []).map((id) => nodesById.get(id)).filter(Boolean)
+    if (!nodes.length) continue
+
+    const cols = Math.max(1, Math.min(3, Math.ceil(Math.sqrt(nodes.length))))
+    const rows = Math.ceil(nodes.length / cols)
+    const colWidths = Array(cols).fill(0)
+    const rowHeights = Array(rows).fill(0)
+
+    nodes.forEach((node, i) => {
+      const col = i % cols
+      const row = Math.floor(i / cols)
+      const { w, h } = nodeSize(node)
+      colWidths[col] = Math.max(colWidths[col], w)
+      rowHeights[row] = Math.max(rowHeights[row], h)
+    })
+
+    const width = colWidths.reduce((acc, value) => acc + value, 0) + GRID_GAP_X * (cols - 1)
+    const height = rowHeights.reduce((acc, value) => acc + value, 0) + GRID_GAP_Y * (rows - 1) + GROUP_HEADER_SPACE
+    blocks.push({ name: group.name, nodes, cols, rows, colWidths, rowHeights, width, height })
+  }
+
+  if (!blocks.length) return new Map()
+
+  const blockCols = Math.max(1, Math.min(3, Math.ceil(Math.sqrt(blocks.length))))
+  const blockRows = Math.ceil(blocks.length / blockCols)
+  const layoutColWidths = Array(blockCols).fill(0)
+  const layoutRowHeights = Array(blockRows).fill(0)
+
+  blocks.forEach((block, idx) => {
+    const col = idx % blockCols
+    const row = Math.floor(idx / blockCols)
+    layoutColWidths[col] = Math.max(layoutColWidths[col], block.width)
+    layoutRowHeights[row] = Math.max(layoutRowHeights[row], block.height)
+  })
+
+  const totalWidth = layoutColWidths.reduce((acc, value) => acc + value, 0) + GROUP_GAP_X * (blockCols - 1)
+  const totalHeight = layoutRowHeights.reduce((acc, value) => acc + value, 0) + GROUP_GAP_Y * (blockRows - 1)
+  const originX = center.x - totalWidth / 2
+  const originY = center.y - totalHeight / 2
+
+  const positions = new Map()
+
+  blocks.forEach((block, idx) => {
+    const blockCol = idx % blockCols
+    const blockRow = Math.floor(idx / blockCols)
+    const cellX = originX + sumUntil(layoutColWidths, blockCol) + GROUP_GAP_X * blockCol
+    const cellY = originY + sumUntil(layoutRowHeights, blockRow) + GROUP_GAP_Y * blockRow
+    const blockX = cellX + (layoutColWidths[blockCol] - block.width) / 2
+    const blockY = cellY + GROUP_HEADER_SPACE
+
+    block.nodes.forEach((node, nodeIdx) => {
+      const col = nodeIdx % block.cols
+      const row = Math.floor(nodeIdx / block.cols)
+      const { w, h } = nodeSize(node)
+      const colStart = blockX + sumUntil(block.colWidths, col) + GRID_GAP_X * col
+      const rowStart = blockY + sumUntil(block.rowHeights, row) + GRID_GAP_Y * row
+      const x = colStart + (block.colWidths[col] - w) / 2
+      const y = rowStart + (block.rowHeights[row] - h) / 2
+      positions.set(node.id, { x, y, groupName: block.name })
+    })
+  })
+
+  return positions
+}
+
+async function requestOllamaTabGroups(webNodes, workspaceLabel, ollamaCfg) {
+  const baseUrl = normalizeOllamaBaseUrl(ollamaCfg?.baseUrl || 'http://localhost:11434')
+  const model = ollamaCfg?.model || 'llama3.2'
+  const tabs = webNodes.map((node) => ({
+    id: node.id,
+    title: node.data?.title || 'Untitled',
+    url: node.data?.url || '',
+    host: rootDomain(node.data?.url) || '',
+  }))
+  const ids = tabs.map((tab) => tab.id)
+
+  const system = [
+    'You are a tab-grouping engine.',
+    'Return strict JSON only.',
+    'Output schema:',
+    '{"groups":[{"name":"Group name","tabs":["tab_id_1","tab_id_2"]}]}',
+    'Rules:',
+    '- Every tab id must appear exactly once.',
+    '- No ids outside the provided list.',
+    '- Use 2 to 7 groups depending on topical similarity.',
+    '- Keep names short (1 to 3 words).',
+  ].join('\n')
+
+  const user = JSON.stringify({
+    workspace: workspaceLabel || 'Workspace',
+    tabs,
+  })
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), GROUP_TIMEOUT_MS)
+
+  try {
+    let res
+    try {
+      res = await fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          stream: false,
+          format: 'json',
+          options: { temperature: 0.1 },
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+        }),
+      })
+    } catch (err) {
+      if (err?.name === 'AbortError') throw new Error('Ollama request timed out.')
+      throw new Error(`Cannot connect to Ollama at ${baseUrl}.`)
+    }
+
+    if (res.status === 404) {
+      const v1 = await fetch(`${baseUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+        }),
+      })
+      if (!v1.ok) {
+        const details = await readErrorBody(v1)
+        throw new Error(details || `Ollama ${v1.status}: ${v1.statusText}`)
+      }
+      const body = await v1.json().catch(() => ({}))
+      const rawContent = body?.choices?.[0]?.message?.content ?? ''
+      const content = typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent)
+      const parsed = parseGroupingPayload(content, ids)
+      if (!parsed) throw new Error('Ollama returned invalid grouping JSON.')
+      return parsed
+    }
+
+    if (!res.ok) {
+      const details = await readErrorBody(res)
+      throw new Error(details || `Ollama ${res.status}: ${res.statusText}`)
+    }
+
+    const body = await res.json().catch(() => ({}))
+    const rawContent = body?.message?.content ?? ''
+    const content = typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent)
+    const parsed = parseGroupingPayload(content, ids)
+    if (!parsed) throw new Error('Ollama returned invalid grouping JSON.')
+    return parsed
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 const PALETTE = [
   { color: '#A78BFA', bg: 'rgba(167,139,250,0.08)' },
@@ -79,6 +417,7 @@ export const useWorkspaceStore = create((set, get) => ({
   isComposerOpen: false,
   isCommandOpen: false,
   isAIPanelOpen: false,
+  workspaceGroupingStatus: {},
   theme: 'dark',
 
   setActiveWorkspaceId: (id) => {
@@ -162,11 +501,8 @@ export const useWorkspaceStore = create((set, get) => ({
 
   // ── ReactFlow wiring ────────────────────────────────────────────────────────
   onNodesChange: (changes) => {
-    // Filter out any changes targeting zone label nodes (they're virtual, not persisted)
-    const realChanges = changes.filter(c => !c.id?.startsWith('__zone_'))
-    if (!realChanges.length) return
     set((s) => {
-      const updated = applyNodeChanges(realChanges, s.nodes)
+      const updated = applyNodeChanges(changes, s.nodes)
       const zMap = Object.fromEntries(s.nodes.map(n => [n.id, n.zIndex]))
       return { nodes: updated.map(n => zMap[n.id] != null ? { ...n, zIndex: zMap[n.id] } : n) }
     })
@@ -200,11 +536,8 @@ export const useWorkspaceStore = create((set, get) => ({
   addWebNode: ({ url, title, favicon, position, workspaceId, pinned } = {}) => {
     const s = get()
     const wsId = workspaceId ?? s.activeWorkspaceId
-    const ws = s.workspaces.find(w => w.id === wsId)
-    const origin = ws?.origin ?? { x: 0, y: 0 }
     const id = `web_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    // Position relative to workspace origin
-    const pos = position ?? { x: origin.x + 200 + Math.random() * 280, y: origin.y + 100 + Math.random() * 200 }
+    const pos = position ?? clusterSpawnPosition(s, wsId)
     const z = nextZ()
     const node = {
       id,
@@ -238,10 +571,8 @@ export const useWorkspaceStore = create((set, get) => ({
   addIdeNode: ({ title, html, position, workspaceId } = {}) => {
     const s = get()
     const wsId = workspaceId ?? s.activeWorkspaceId
-    const ws = s.workspaces.find(w => w.id === wsId)
-    const origin = ws?.origin ?? { x: 0, y: 0 }
     const id = `ide_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    const pos = position ?? { x: origin.x + 160 + Math.random() * 280, y: origin.y + 90 + Math.random() * 180 }
+    const pos = position ?? clusterSpawnPosition(s, wsId)
     const z = nextZ()
     const node = {
       id,
@@ -267,10 +598,8 @@ export const useWorkspaceStore = create((set, get) => ({
   addAICanvasNode: ({ position, workspaceId } = {}) => {
     const s = get()
     const wsId = workspaceId ?? s.activeWorkspaceId
-    const ws = s.workspaces.find(w => w.id === wsId)
-    const origin = ws?.origin ?? { x: 0, y: 0 }
     const id = `ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    const pos = position ?? { x: origin.x + 200 + Math.random() * 200, y: origin.y + 80 + Math.random() * 160 }
+    const pos = position ?? clusterSpawnPosition(s, wsId)
     const z = nextZ()
     const node = {
       id,
@@ -518,16 +847,156 @@ export const useWorkspaceStore = create((set, get) => ({
     }))
     _save(get())
   },
+  groupWorkspaceTabsWithAI: async (workspaceId) => {
+    const startedAt = Date.now()
+    const initial = get()
+    const wsId = workspaceId ?? initial.activeWorkspaceId
+    const workspace = initial.workspaces.find((w) => w.id === wsId)
+
+    if (!workspace) return { ok: false, reason: 'workspace-not-found' }
+
+    const currentWebNodes = initial.nodes.filter((n) => n.type === 'webNode' && n.data?.workspaceId === wsId)
+    if (!currentWebNodes.length) {
+      set((s) => ({
+        workspaceGroupingStatus: {
+          ...s.workspaceGroupingStatus,
+          [wsId]: {
+            state: 'idle',
+            message: 'No tabs to group',
+            groupedTabs: 0,
+            groups: 0,
+            updatedAt: Date.now(),
+          },
+        },
+      }))
+      return { ok: false, reason: 'no-tabs' }
+    }
+
+    set((s) => ({
+      workspaceGroupingStatus: {
+        ...s.workspaceGroupingStatus,
+        [wsId]: {
+          state: 'running',
+          message: 'Grouping tabs...',
+          groupedTabs: currentWebNodes.length,
+          groups: 0,
+          updatedAt: Date.now(),
+        },
+      },
+    }))
+
+    let grouped = null
+    let usedFallback = false
+    let failureMessage = ''
+
+    try {
+      grouped = await requestOllamaTabGroups(currentWebNodes, workspace.label, initial.aiProvider?.ollama)
+    } catch (err) {
+      usedFallback = true
+      failureMessage = err?.message || 'AI grouping failed.'
+    }
+
+    if (!grouped || !grouped.length) {
+      grouped = buildFallbackGroups(currentWebNodes)
+      usedFallback = true
+    }
+
+    const latest = get()
+    const ws = latest.workspaces.find((w) => w.id === wsId)
+    const webNodes = latest.nodes.filter((n) => n.type === 'webNode' && n.data?.workspaceId === wsId)
+    if (!webNodes.length) {
+      set((s) => ({
+        workspaceGroupingStatus: {
+          ...s.workspaceGroupingStatus,
+          [wsId]: {
+            state: 'idle',
+            message: 'No tabs to group',
+            groupedTabs: 0,
+            groups: 0,
+            updatedAt: Date.now(),
+          },
+        },
+      }))
+      return { ok: false, reason: 'no-tabs' }
+    }
+
+    const validIds = new Set(webNodes.map((n) => n.id))
+    const seen = new Set()
+    const sanitized = []
+    for (const group of grouped) {
+      const ids = (group.tabIds || []).filter((id) => validIds.has(id) && !seen.has(id))
+      if (!ids.length) continue
+      ids.forEach((id) => seen.add(id))
+      sanitized.push({ name: group.name || 'Group', tabIds: ids })
+    }
+
+    const missing = webNodes.map((n) => n.id).filter((id) => !seen.has(id))
+    if (missing.length) sanitized.push({ name: 'Ungrouped', tabIds: missing })
+
+    const seedCenter = viewportToCanvasCenter(ws?.viewport) ?? latest.viewportCenter ?? { x: 0, y: 0 }
+    const center = clusterCenter(webNodes, seedCenter)
+    const placements = buildGroupedPositions(sanitized, webNodes, center)
+    const groupedAt = Date.now()
+
+    set((s) => ({
+      nodes: s.nodes.map((node) => {
+        const placement = placements.get(node.id)
+        if (!placement) return node
+        return {
+          ...node,
+          position: { x: placement.x, y: placement.y },
+          data: {
+            ...node.data,
+            aiGroup: placement.groupName,
+            aiGroupedAt: groupedAt,
+          },
+        }
+      }),
+      workspaceGroupingStatus: {
+        ...s.workspaceGroupingStatus,
+        [wsId]: {
+          state: 'done',
+          message: usedFallback
+            ? (failureMessage ? `Heuristic grouping used (${failureMessage})` : 'Heuristic grouping used')
+            : 'Grouped with Ollama',
+          groupedTabs: placements.size,
+          groups: sanitized.length,
+          usedFallback,
+          model: initial.aiProvider?.ollama?.model || 'llama3.2',
+          durationMs: groupedAt - startedAt,
+          updatedAt: groupedAt,
+        },
+      },
+    }))
+
+    _save(get())
+    return {
+      ok: true,
+      workspaceId: wsId,
+      groupedTabs: placements.size,
+      groups: sanitized.length,
+      usedFallback,
+      message: failureMessage,
+    }
+  },
+  groupAllWorkspacesWithAI: async () => {
+    const ids = get().workspaces.map((w) => w.id)
+    const results = []
+    for (const wsId of ids) {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await get().groupWorkspaceTabsWithAI(wsId)
+      results.push({ workspaceId: wsId, ...result })
+    }
+    return results
+  },
 
   // ── Workspaces ──────────────────────────────────────────────────────────────
   addWorkspace: (label) => {
     const s = get()
     const idx = s.workspaces.length % PALETTE.length
     const id = `ws_${Date.now()}`
-    const existingOrigins = s.workspaces.map(w => w.origin).filter(Boolean)
-    const origin = generateOrigin(existingOrigins)
     set((s) => ({
-      workspaces: [...s.workspaces, { id, label, ...PALETTE[idx], sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 }, origin }],
+      workspaces: [...s.workspaces, { id, label, ...PALETTE[idx], sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } }],
       activeWorkspaceId: id,
     }))
     _save(get())
@@ -596,33 +1065,13 @@ export const useWorkspaceStore = create((set, get) => ({
           viewport: saved.viewport ?? { x: 0, y: 0, zoom: 1 }
         })) ?? DEFAULT_WORKSPACES)
 
-        // ── v5 → v6 migration: assign origins to workspaces that don't have them ──
-        let nodes = saved.nodes ?? []
-        const needsOriginMigration = workspaces.some(w => !w.origin)
-        if (needsOriginMigration) {
-          const assignedOrigins = []
-          workspaces = workspaces.map((w, i) => {
-            if (w.origin) { assignedOrigins.push(w.origin); return w }
-            // First workspace stays at center, others get random origins
-            const origin = i === 0 ? { x: 0, y: 0 } : generateOrigin(assignedOrigins)
-            assignedOrigins.push(origin)
-            return { ...w, origin }
-          })
-          // Reposition existing nodes relative to their workspace's origin
-          nodes = nodes.map(n => {
-            const wsId = n.data?.workspaceId
-            if (!wsId) return n
-            const ws = workspaces.find(w => w.id === wsId)
-            if (!ws?.origin || (ws.origin.x === 0 && ws.origin.y === 0)) return n
-            return {
-              ...n,
-              position: {
-                x: (n.position?.x ?? 0) + ws.origin.x,
-                y: (n.position?.y ?? 0) + ws.origin.y,
-              },
-            }
-          })
-        }
+        // Normalize workspace metadata for cluster-based layout.
+        workspaces = workspaces.map((w) => ({
+          ...w,
+          sessionHistory: w.sessionHistory ?? [],
+          viewport: w.viewport ?? { x: 0, y: 0, zoom: 1 },
+        }))
+        const nodes = saved.nodes ?? []
 
         const activeWorkspaceId = saved.activeWorkspaceId ?? (saved.activeCategoryId ?? workspaces[0].id)
 
@@ -639,12 +1088,11 @@ export const useWorkspaceStore = create((set, get) => ({
           aiConversations: saved.aiConversations ?? [],
           aiCurrentId: saved.aiCurrentId ?? (saved.aiConversations?.[0]?.id ?? null),
           aiContextEnabled: saved.aiContextEnabled ?? true,
+          workspaceGroupingStatus: {},
         })
-
-        // Save immediately if we migrated to persist the new origins
-        if (needsOriginMigration) _save(get())
       }
     } catch (e) { console.error('Load failed', e) }
     finally { set({ isLoading: false }) }
   },
 }))
+
