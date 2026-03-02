@@ -1,11 +1,15 @@
 import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { ReactFlowProvider } from 'reactflow'
 import { useWorkspaceStore } from './store/workspaceStore'
 import CanvasWorkspace from './components/Canvas/CanvasWorkspace'
 import CanvasSidebar   from './components/Sidebar/CanvasSidebar'
-import BottomBar       from './components/UI/BottomBar'
+import TopBar          from './components/UI/TopBar'
+import WorkspaceCarousel from './components/UI/WorkspaceCarousel'
+import ComposerModal   from './components/UI/ComposerModal'
 import LoadingScreen   from './components/UI/LoadingScreen'
 import CommandPalette  from './components/UI/CommandPalette'
+import SettingsModal   from './components/UI/SettingsModal'
 
 export default function App() {
   const { isLoading, loadWorkspace, isSidebarOpen, theme } = useWorkspaceStore()
@@ -52,32 +56,37 @@ export default function App() {
       </AnimatePresence>
 
       {!isLoading && (
-        <div style={{ display: 'flex', width: '100%', height: '100%', flexDirection: 'column' }}>
-          <WinTitleBar />
-          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-            <AnimatePresence initial={false}>
+        <ReactFlowProvider>
+          <div style={{ display: 'flex', width: '100%', height: '100%', flexDirection: 'column' }}>
+            <WinTitleBar />
+            <TopBar />
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+              <AnimatePresence initial={false}>
               {isSidebarOpen && (
                 <motion.div key="sb"
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 260, opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                  initial={{ width: 0, x: -20, opacity: 0 }}
+                  animate={{ width: 260, x: 0, opacity: 1 }}
+                  exit={{ width: 0, x: -20, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                   style={{ overflow: 'hidden', flexShrink: 0, height: '100%' }}
                 >
                   <CanvasSidebar />
                 </motion.div>
               )}
             </AnimatePresence>
-            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-              <CanvasWorkspace />
+              <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                <CanvasWorkspace />
+                <WorkspaceCarousel />
+              </div>
             </div>
           </div>
-          <BottomBar />
-        </div>
+        </ReactFlowProvider>
       )}
 
       {/* Global overlays */}
+      <ComposerModal />
       <CommandPalette />
+      <SettingsModal />
     </div>
   )
 }

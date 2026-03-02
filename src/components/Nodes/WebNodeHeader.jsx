@@ -93,7 +93,7 @@ const WebNodeHeader = memo(function WebNodeHeader({
           <TL color="#FEBC2E" hovered={tlHover} onClick={e => { e.stopPropagation(); onMinimize() }} title="Minimize"
             icon={<path d="M1.5 4h5" stroke="rgba(0,0,0,0.55)" strokeWidth="1.3" strokeLinecap="round"/>}/>
           <TL color="#28C840" hovered={tlHover} onClick={e => { e.stopPropagation(); onReload() }} title="Reload"
-            icon={<><path d="M6.5 2.5A4 4 0 0 1 5.8 6.5" stroke="rgba(0,0,0,0.55)" strokeWidth="1.3" strokeLinecap="round" fill="none"/><path d="M5.8 2l.7 1.5-1.5.5" stroke="rgba(0,0,0,0.55)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></>}/>
+            icon={<><path d="M1.5 4.5a3 3 0 1 1 3-3" stroke="rgba(0,0,0,0.6)" strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M3.5 1l1 1-1 1" stroke="rgba(0,0,0,0.6)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></>}/>
         </div>
 
         {/* Nav buttons */}

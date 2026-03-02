@@ -1,48 +1,10 @@
 {
-  "nodes": [
-    {
-      "id": "ai_1772451210469_bt73",
-      "type": "aiNode",
-      "position": {
-        "x": 1761.6820502168866,
-        "y": -1151.0014733392495
-      },
-      "data": {
-        "createdAt": 1772451210469,
-        "conversations": [
-          {
-            "id": "cv_1772451210473_5e9",
-            "title": "Find connections between my tabs",
-            "messages": [],
-            "createdAt": 1772451210473,
-            "updatedAt": 1772451792817
-          }
-        ],
-        "activeConvId": "cv_1772451210473_5e9"
-      },
-      "style": {
-        "width": 320,
-        "height": 380,
-        "zIndex": 282
-      },
-      "zIndex": 319,
-      "dragHandle": ".node-drag-handle",
-      "width": 320,
-      "height": 380,
-      "selected": true,
-      "positionAbsolute": {
-        "x": 1761.6820502168866,
-        "y": -1151.0014733392495
-      },
-      "dragging": false,
-      "resizing": false
-    }
-  ],
+  "nodes": [],
   "edges": [],
   "viewport": {
-    "x": -2680.3376031073085,
-    "y": 2300.936092885523,
-    "zoom": 1.6659038901601833
+    "x": 0,
+    "y": 240,
+    "zoom": 1
   },
   "categories": [
     {
@@ -64,99 +26,11 @@
       "bg": "rgba(52,211,153,0.08)"
     }
   ],
-  "theme": "light",
-  "sessionHistory": [
-    {
-      "id": "hist_1772451505910_au0",
-      "url": "https://www.youtube.com/",
-      "title": "YouTube",
-      "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
-      "note": "",
-      "closedAt": 1772451505910
-    },
-    {
-      "id": "hist_1772451501553_4na",
-      "url": "https://www.google.com/",
-      "title": "Google",
-      "favicon": "https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico",
-      "note": "",
-      "closedAt": 1772451501553
-    },
-    {
-      "id": "hist_1772451498719_3wy",
-      "url": "https://www.google.com/",
-      "title": "Google",
-      "favicon": "https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico",
-      "note": "",
-      "closedAt": 1772451498719
-    },
-    {
-      "id": "hist_1772451492631_4cg",
-      "url": "https://www.google.com/",
-      "title": "Google",
-      "favicon": "https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico",
-      "note": "",
-      "closedAt": 1772451492631
-    },
-    {
-      "id": "hist_1772450997904_roe",
-      "url": "https://www.youtube.com/",
-      "title": "YouTube",
-      "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
-      "note": "",
-      "closedAt": 1772450997904
-    },
-    {
-      "id": "hist_1772450954612_109",
-      "url": "https://www.google.com/search?sa=X&sca_esv=26102ee7b85ee816&udm=7&fbs=ADc_l-aN0CWEZBOHjofHoaMMDiKpaEWjvZ2Py1XXV8d8KvlI3haANnLda_0ICNK9XOG44BAA6iP1iQgnF48SzaArw3DbSfhA3BbhDpGGQ5ykZXwfWgHSneymwU4mhDKUk3U2eMcE-z0FRMQoOLtPsvEef28AcD2W2rpaxqLis6mNxZ0VGBB8pXCmVMsEXa5gtdDwBkR0FQ276Guig0bz4divfvpHrD0wXA&q=aquarius+horoscope&ved=2ahUKEwj3kPmnjoGTAxWXTWwGHfOEA6kQtKgLegQIEBAB&cshid=1772450947164094&biw=1280&bih=150&dpr=1.25",
-      "title": "aquarius horoscope - Google Search",
-      "favicon": "https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico",
-      "note": "",
-      "closedAt": 1772450954612
-    },
-    {
-      "id": "hist_1772450862326_ema",
-      "url": "https://github.com/",
-      "title": "GitHub · Change is constant. GitHub keeps you ahead. · GitHub",
-      "favicon": "https://github.githubassets.com/favicons/favicon-dark.png",
-      "note": "GitHub – “Change is constant. GitHub keeps you ahead.”\thttpshttps://github.com/\tThe GitHub home page is the central hub for the world’s largest code‑hosting platform. It offers quick access to sign‑in/sign‑up, showcases trending repositories, highlights new features (e.g., Codespaces, Copilot), and provides links to documentation, community resources, and the GitHub Marketplace.\n",
-      "closedAt": 1772450862326
-    },
-    {
-      "id": "hist_1772450388950_7hn",
-      "url": "https://www.google.com/search?sca_esv=26102ee7b85ee816&q=india+air+ticket+refund+dgca&source=lnms&fbs=ADc_l-aN0CWEZBOHjofHoaMMDiKp0UJuhqwKhR0QUhF54-6jIf5FTMC_zgepHBqt1YxkrDfvl9OYBKmpqCV117-r-vaKlf5KmEi5D8HzJ4cwoqDcf0riV_wndb_PYCJopu00mBH_heoSYWsW7TV0id7svoAJg-0BftCzm8gZsIKOWoMsn3ktqo7VDSbScs1upbmopXpnXZuRXRn6b1-h54kVI_WHdAVo7w&sa=X&ved=2ahUKEwiYgpPBi4GTAxXKUGcHHWavBiQQ0pQJegQIEhAB&biw=1280&bih=755&dpr=1.25",
-      "title": "india air ticket refund dgca - Google Search",
-      "favicon": "https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico",
-      "note": "",
-      "closedAt": 1772450388950
-    },
-    {
-      "id": "hist_1772447714502_d1m",
-      "url": "https://www.youtube.com/shorts/V7sw1tmb-wQ",
-      "title": "He Just Did As Told💀 #shorts #usa - YouTube",
-      "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
-      "note": "",
-      "closedAt": 1772447714502
-    },
-    {
-      "id": "hist_1772447712642_904",
-      "url": "https://accounts.google.com/v3/signin/identifier?continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3Dhttps%253A%252F%252Fwww.youtube.com%252Fwatch%253Fv%253DqZ5dcWJ8ubo&dsh=S1764147858%3A1772447518496582&ec=65620&hl=en&ifkv=ASfE1-p-L-gWlWwEJxrD07FHrC5j5kECTWXCJtSBiZ7mhUt26iri51NrPZbhFLxfdYXYJ2rlF2JK1g&passive=true&service=youtube&uilel=3&flowName=WebLiteSignIn&flowEntry=ServiceLogin",
-      "title": "YouTube",
-      "favicon": "https://accounts.google.com/favicon.ico",
-      "note": "",
-      "closedAt": 1772447712642
-    },
-    {
-      "id": "hist_1772447711264_dnu",
-      "url": "https://www.figma.com/",
-      "title": "Figma: The Collaborative Interface Design Tool",
-      "favicon": "https://static.figma.com/app/icon/2/favicon.ico",
-      "note": "",
-      "closedAt": 1772447711264
-    }
-  ],
+  "activeCategoryId": "cat_work",
+  "theme": "dark",
+  "sessionHistory": [],
   "aiProvider": {
-    "active": "ollama",
+    "active": "openai",
     "openai": {
       "apiKey": "",
       "model": "gpt-4o"
@@ -171,58 +45,10 @@
     },
     "ollama": {
       "baseUrl": "http://localhost:11434",
-      "model": "gpt-oss:120b-cloud"
+      "model": "llama3.2"
     }
   },
-  "aiConversations": [
-    {
-      "id": "conv_1772446977636",
-      "title": "New chat",
-      "messages": [],
-      "createdAt": 1772446977636,
-      "updatedAt": 1772446977636
-    },
-    {
-      "id": "conv_1772446238432",
-      "title": "Summarize all my open tabs",
-      "messages": [
-        {
-          "id": "m_1772446239699",
-          "role": "user",
-          "content": "Summarize all my open tabs",
-          "ts": 1772446239699
-        },
-        {
-          "id": "m_1772446239701",
-          "role": "assistant",
-          "content": "Here’s a quick overview of the tabs you currently have open in Canvascape:\n\n| # | Title | URL |\n|---|-------|-----|\n| 1 | YouTube | https://www.youtube.com/ |\n\nThat’s the only tab open at the moment. Let me know if you’d like to open a new site, create a webpage, or do anything else!",
-          "ts": 1772446239700
-        }
-      ],
-      "createdAt": 1772446238432,
-      "updatedAt": 1772446240900
-    },
-    {
-      "id": "conv_1772446194036",
-      "title": "Summarize all my open tabs",
-      "messages": [
-        {
-          "id": "m_1772446223454",
-          "role": "user",
-          "content": "Summarize all my open tabs",
-          "ts": 1772446223454
-        },
-        {
-          "id": "m_1772446223455",
-          "role": "assistant",
-          "content": "⚠️ OpenAI API key is not set. Open Settings → API Key.",
-          "ts": 1772446223454
-        }
-      ],
-      "createdAt": 1772446194036,
-      "updatedAt": 1772446223463
-    }
-  ],
+  "aiConversations": [],
   "version": 3,
-  "savedAt": 1772451794021
+  "savedAt": 1772454689222
 }

@@ -27,6 +27,7 @@ const _save = debounce(async (state) => {
       edges: state.edges,
       viewport: state.viewport,
       categories: state.categories,
+      activeCategoryId: state.activeCategoryId,
       theme: state.theme,
       sessionHistory:   state.sessionHistory,
       aiProvider:       state.aiProvider,
@@ -46,12 +47,16 @@ export const useWorkspaceStore = create((set, get) => ({
   isLoading:    true,
 
   categories:      DEFAULT_CATEGORIES,
+  activeCategoryId: 'cat_work', // Default to first category
   filter:          'all',
   isSidebarOpen:   true,
   isComposerOpen:  false,
   isCommandOpen:   false,
   isAIPanelOpen:   false,
+  isSettingsOpen:  false,
   theme:           'dark',
+
+  setActiveCategoryId: (id) => set({ activeCategoryId: id }),
 
   // ── AI state ────────────────────────────────────────────────────────────────
   aiConversations: [],  // [{ id, title, messages:[{id,role,content,ts}], createdAt, updatedAt }]
@@ -140,7 +145,8 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   // ── Add web node ────────────────────────────────────────────────────────────
-  addWebNode: ({ url, title, favicon, position, categoryId } = {}) => {
+  addWebNode: ({ url, title, favicon, position, categoryId, pinned } = {}) => {
+    const s = get()
     const id = `web_${Date.now()}_${Math.random().toString(36).slice(2,6)}`
     const pos = position ?? { x: 200 + Math.random() * 280, y: 100 + Math.random() * 200 }
     const z = nextZ()
@@ -153,8 +159,8 @@ export const useWorkspaceStore = create((set, get) => ({
         title:        title   ?? 'New Tab',
         favicon:      favicon ?? null,
         isLoading:    true,
-        categoryId:   categoryId ?? null,
-        pinned:       false,
+        categoryId:   categoryId ?? s.activeCategoryId,
+        pinned:       pinned  ?? false,
         minimized:    false,
         createdAt:    Date.now(),
         note:         '',
@@ -174,6 +180,7 @@ export const useWorkspaceStore = create((set, get) => ({
 
   // ── Add IDE node (code + live preview) ──────────────────────────────────────
   addIdeNode: ({ title, html, position, categoryId } = {}) => {
+    const s = get()
     const id = `ide_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
     const pos = position ?? { x: 160 + Math.random() * 280, y: 90 + Math.random() * 180 }
     const z = nextZ()
@@ -184,7 +191,7 @@ export const useWorkspaceStore = create((set, get) => ({
       data: {
         title: title ?? 'Live IDE Preview',
         code: html ?? '<!doctype html>\n<html>\n  <head><meta charset="utf-8" /><title>Live IDE</title></head>\n  <body><h1>Hello from Canvascape</h1></body>\n</html>',
-        categoryId: categoryId ?? null,
+        categoryId: categoryId ?? s.activeCategoryId,
         createdAt: Date.now(),
         aiGenerated: true,
       },
@@ -256,6 +263,7 @@ export const useWorkspaceStore = create((set, get) => ({
         favicon:  node.data.favicon,
         note:     node.data.note || '',
         closedAt: Date.now(),
+        pinned:   node.data.pinned || false,
       }
       set((s) => ({
         sessionHistory: [histEntry, ...s.sessionHistory].slice(0, 40),
@@ -392,7 +400,7 @@ export const useWorkspaceStore = create((set, get) => ({
   // ── Session history ─────────────────────────────────────────────────────────
   clearHistory: () => { set({ sessionHistory: [] }); _save(get()) },
   restoreFromHistory: (histEntry) => {
-    get().addWebNode({ url: histEntry.url, title: histEntry.title, favicon: histEntry.favicon })
+    get().addWebNode({ url: histEntry.url, title: histEntry.title, favicon: histEntry.favicon, pinned: histEntry.pinned })
     // Remove from history after restore
     set((s) => ({ sessionHistory: s.sessionHistory.filter((h) => h.id !== histEntry.id) }))
     _save(get())
@@ -402,7 +410,10 @@ export const useWorkspaceStore = create((set, get) => ({
   addCategory: (label) => {
     const idx = get().categories.length % PALETTE.length
     const id  = `cat_${Date.now()}`
-    set((s) => ({ categories: [...s.categories, { id, label, ...PALETTE[idx] }] }))
+    set((s) => ({
+      categories: [...s.categories, { id, label, ...PALETTE[idx] }],
+      activeCategoryId: id,
+    }))
     _save(get())
     return id
   },
@@ -411,10 +422,14 @@ export const useWorkspaceStore = create((set, get) => ({
     _save(get())
   },
   removeCategory: (id) => {
-    set((s) => ({
-      categories: s.categories.filter((c) => c.id !== id),
-      nodes: s.nodes.map((n) => n.data?.categoryId === id ? { ...n, data: { ...n.data, categoryId: null } } : n),
-    }))
+    set((s) => {
+      const nextCats = s.categories.filter((c) => c.id !== id)
+      return {
+        categories: nextCats,
+        activeCategoryId: s.activeCategoryId === id ? (nextCats[0]?.id ?? null) : s.activeCategoryId,
+        nodes: s.nodes.map((n) => n.data?.categoryId === id ? { ...n, data: { ...n.data, categoryId: null } } : n),
+      }
+    })
     _save(get())
   },
 
@@ -425,6 +440,7 @@ export const useWorkspaceStore = create((set, get) => ({
   setCommandOpen:   (val) => set({ isCommandOpen: val }),
   toggleAIPanel:    ()    => set((s) => ({ isAIPanelOpen: !s.isAIPanelOpen })),
   setAIPanelOpen:   (val) => set({ isAIPanelOpen: val }),
+  setSettingsOpen:  (val) => set({ isSettingsOpen: val }),
   toggleTheme:     ()    => {
     set((s) => {
       const next = s.theme === 'dark' ? 'light' : 'dark'
@@ -448,6 +464,7 @@ export const useWorkspaceStore = create((set, get) => ({
           edges:          saved.edges ?? [],
           viewport:       saved.viewport ?? { x: 0, y: 0, zoom: 1 },
           categories:     saved.categories ?? DEFAULT_CATEGORIES,
+          activeCategoryId: saved.activeCategoryId ?? (saved.categories?.[0]?.id ?? 'cat_work'),
           sessionHistory: saved.sessionHistory ?? [],
           aiProvider:       saved.aiProvider       ?? get().aiProvider,
           aiConversations:  saved.aiConversations  ?? [],

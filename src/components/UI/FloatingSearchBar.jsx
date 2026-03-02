@@ -4,12 +4,12 @@ import { useWorkspaceStore } from '../../store/workspaceStore'
 import { normalizeUrl, titleFromUrl, faviconUrl } from '../../utils/urlUtils'
 
 const QUICK_ACCESS = [
-  { label: 'Google', url: 'https://www.google.com', icon: '🔍' },
-  { label: 'GitHub', url: 'https://github.com', icon: '🐙' },
-  { label: 'YouTube', url: 'https://www.youtube.com', icon: '▶️' },
-  { label: 'Notion', url: 'https://www.notion.so', icon: '📝' },
-  { label: 'Figma', url: 'https://www.figma.com', icon: '🎨' },
-  { label: 'Linear', url: 'https://linear.app', icon: '📐' },
+  { label: 'Google', url: 'https://www.google.com' },
+  { label: 'GitHub', url: 'https://github.com' },
+  { label: 'YouTube', url: 'https://www.youtube.com' },
+  { label: 'Notion', url: 'https://www.notion.so' },
+  { label: 'Figma', url: 'https://www.figma.com' },
+  { label: 'Linear', url: 'https://linear.app' },
 ]
 
 export default function FloatingSearchBar() {
@@ -117,7 +117,8 @@ export default function FloatingSearchBar() {
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(124,111,205,0.14)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(124,111,205,0.07)' }}
               >
-                <span>{site.icon}</span>{site.label}
+                <img src={faviconUrl(site.url)} style={{ width: 14, height: 14, borderRadius: 2, flexShrink: 0 }} alt="" />
+                {site.label}
               </button>
             ))}
           </div>
