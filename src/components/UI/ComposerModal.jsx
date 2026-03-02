@@ -90,7 +90,7 @@ export default function ComposerModal() {
               <div style={{ padding: '12px 20px 0', borderBottom: `1px solid ${isDark ? 'rgba(255,245,220,0.07)' : 'rgba(100,80,40,0.08)'}` }}>
                 <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 10 }}>Add to workspace</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 12 }}>
-                  {[{ id: null, label: 'None', color: 'var(--t3)', bg: 'var(--s2)' }, ...workspaces].map(c => (
+                  {workspaces.map(c => (
                     <button key={c.id ?? 'none'} onClick={() => setSelCat(c.id)}
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px',

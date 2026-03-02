@@ -11,6 +11,7 @@ export default function CanvasSidebar() {
   const [editId,    setEditId]    = useState(null)
   const [editLabel, setEditLabel] = useState('')
   const [showPicker, setShowPicker] = useState(false)
+  const [hoveredWs, setHoveredWs] = useState(null)
   const scrollRef = useRef(null)
 
   const activeWorkspace = getActiveWorkspace()
@@ -28,7 +29,7 @@ export default function CanvasSidebar() {
     setEditId(null)
   }
 
-  const allWorkspaces = [{ id: null, label: 'Unsorted', color: 'var(--t4)' }, ...workspaces]
+  const allWorkspaces = [...workspaces]
   
   const switchWorkspace = (dir) => {
     const idx = allWorkspaces.findIndex(c => c.id === activeWorkspaceId)
@@ -173,16 +174,32 @@ export default function CanvasSidebar() {
               </span>
             </div>
             {activeWorkspace && (
-              <button 
-                onClick={() => { setEditId(activeWorkspace.id); setEditLabel(activeWorkspace.label) }}
-                style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--t4)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}
-                onMouseEnter={e => e.currentTarget.style.color = 'var(--t2)'}
-                onMouseLeave={e => e.currentTarget.style.color = 'var(--t4)'}
-              >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <path d="M11 2l3 3-9 9H2v-3l9-9z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <button 
+                  onClick={() => { setEditId(activeWorkspace.id); setEditLabel(activeWorkspace.label) }}
+                  style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--t4)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--t2)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--t4)'}
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                    <path d="M11 2l3 3-9 9H2v-3l9-9z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                <button 
+                  onClick={() => {
+                    if (window.confirm(`Are you sure you want to delete "${activeWorkspace.label}"? This cannot be undone.`)) {
+                      removeWorkspace(activeWorkspace.id)
+                    }
+                  }}
+                  style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--t4)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#F87171'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--t4)'}
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 4h10M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1m2 0v10a1 1 0 01-1 1H4a1 1 0 01-1-1V4h10z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
             )}
           </>
         )}
@@ -231,7 +248,7 @@ export default function CanvasSidebar() {
               {allWorkspaces.map(ws => {
                 const isActive = activeWorkspaceId === ws.id
                 return (
-                <button
+                <div
                   key={ws.id ?? 'unsorted'}
                   onClick={() => setActiveWorkspaceId(ws.id)}
                   data-active={isActive}
@@ -261,8 +278,8 @@ export default function CanvasSidebar() {
                   )}
                   <div style={{ width: 6, height: 6, borderRadius: '50%', background: ws.color }} />
                   {ws.emoji && <span style={{ fontSize: 12 }}>{ws.emoji}</span>}
-                  {ws.label}
-                </button>
+                  <span>{ws.label}</span>
+                </div>
               )
               })}
             </LayoutGroup>

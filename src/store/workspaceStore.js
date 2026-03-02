@@ -5,37 +5,60 @@ import { debounce } from '../utils/debounce'
 let _zCounter = 100
 const nextZ = () => ++_zCounter
 
+// ── Unified Canvas constants ──────────────────────────────────────────────────
+export const ACTIVATION_RADIUS = 2000  // canvas units — nodes within this are fully active
+export const FADE_RADIUS = 3000  // canvas units — nodes between ACTIVATION and FADE are transitioning
+const MIN_ORIGIN_SEPARATION = 6000  // minimum distance between workspace origins
+
+// Generate a random origin far from existing ones
+function generateOrigin(existingOrigins) {
+  const maxAttempts = 50
+  for (let i = 0; i < maxAttempts; i++) {
+    const angle = Math.random() * Math.PI * 2
+    const dist = 8000 + Math.random() * 12000
+    const candidate = { x: Math.round(Math.cos(angle) * dist), y: Math.round(Math.sin(angle) * dist) }
+    const tooClose = existingOrigins.some(o => {
+      const dx = o.x - candidate.x, dy = o.y - candidate.y
+      return Math.sqrt(dx * dx + dy * dy) < MIN_ORIGIN_SEPARATION
+    })
+    if (!tooClose) return candidate
+  }
+  // Fallback: place far out
+  const n = existingOrigins.length
+  return { x: n * 10000, y: (n % 2) * 8000 }
+}
+
 const DEFAULT_WORKSPACES = [
-  { id: 'ws_work',     label: 'Work',     color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', emoji: '💼', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } },
-  { id: 'ws_research', label: 'Research', color: '#60A5FA', bg: 'rgba(96,165,250,0.08)', emoji: '🔬', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } },
-  { id: 'ws_personal', label: 'Personal', color: '#34D399', bg: 'rgba(52,211,153,0.08)', emoji: '🏠', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } },
+  { id: 'ws_work', label: 'Work', color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', emoji: '💼', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 }, origin: { x: 0, y: 0 } },
+  { id: 'ws_research', label: 'Research', color: '#60A5FA', bg: 'rgba(96,165,250,0.08)', emoji: '🔬', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 }, origin: { x: 8000, y: 3000 } },
+  { id: 'ws_personal', label: 'Personal', color: '#34D399', bg: 'rgba(52,211,153,0.08)', emoji: '🏠', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 }, origin: { x: -6000, y: 7000 } },
 ]
 
 const PALETTE = [
   { color: '#A78BFA', bg: 'rgba(167,139,250,0.08)' },
-  { color: '#60A5FA', bg: 'rgba(96,165,250,0.08)'  },
-  { color: '#34D399', bg: 'rgba(52,211,153,0.08)'  },
-  { color: '#F97316', bg: 'rgba(249,115,22,0.08)'  },
+  { color: '#60A5FA', bg: 'rgba(96,165,250,0.08)' },
+  { color: '#34D399', bg: 'rgba(52,211,153,0.08)' },
+  { color: '#F97316', bg: 'rgba(249,115,22,0.08)' },
   { color: '#F472B6', bg: 'rgba(244,114,182,0.08)' },
-  { color: '#FBBF24', bg: 'rgba(251,191,36,0.08)'  },
+  { color: '#FBBF24', bg: 'rgba(251,191,36,0.08)' },
 ]
 
 const _save = debounce(async (state) => {
   try {
     await window.canvascape?.workspace.save({
-      nodes:            state.nodes,
-      edges:            state.edges,
-      workspaces:       state.workspaces,
+      nodes: state.nodes,
+      edges: state.edges,
+      workspaces: state.workspaces,
       activeWorkspaceId: state.activeWorkspaceId,
-      theme:            state.theme,
-      aiProvider:       state.aiProvider,
-      aiConversations:  state.aiConversations,
-      aiCurrentId:      state.aiCurrentId,
-      isSidebarOpen:    state.isSidebarOpen,
-      isAIPanelOpen:    state.isAIPanelOpen,
-      filter:           state.filter,
+      theme: state.theme,
+      aiProvider: state.aiProvider,
+      aiConversations: state.aiConversations,
+      aiCurrentId: state.aiCurrentId,
+      isSidebarOpen: state.isSidebarOpen,
+      isAIPanelOpen: state.isAIPanelOpen,
+      filter: state.filter,
       aiContextEnabled: state.aiContextEnabled,
-      version: 5,
+      version: 6,
       savedAt: Date.now(),
     })
   } catch (e) { console.warn('Save failed', e) }
@@ -43,19 +66,20 @@ const _save = debounce(async (state) => {
 
 export const useWorkspaceStore = create((set, get) => ({
   // ── State ──────────────────────────────────────────────────────────────────
-  nodes:        [],
-  edges:        [],
+  nodes: [],
+  edges: [],
   activeNodeId: null,
-  isLoading:    true,
+  isLoading: true,
+  viewportCenter: { x: 0, y: 0 },   // tracks current viewport center for neighbor algo
 
-  workspaces:       DEFAULT_WORKSPACES,
-  activeWorkspaceId: 'ws_work', 
-  filter:          'all',
-  isSidebarOpen:   true,
-  isComposerOpen:  false,
-  isCommandOpen:   false,
-  isAIPanelOpen:   false,
-  theme:           'dark',
+  workspaces: DEFAULT_WORKSPACES,
+  activeWorkspaceId: 'ws_work',
+  filter: 'all',
+  isSidebarOpen: true,
+  isComposerOpen: false,
+  isCommandOpen: false,
+  isAIPanelOpen: false,
+  theme: 'dark',
 
   setActiveWorkspaceId: (id) => {
     set((s) => {
@@ -75,17 +99,17 @@ export const useWorkspaceStore = create((set, get) => ({
 
   // ── AI state ────────────────────────────────────────────────────────────────
   aiConversations: [],  // [{ id, title, messages:[{id,role,content,ts}], createdAt, updatedAt }]
-  aiCurrentId:     null,
+  aiCurrentId: null,
   aiContextEnabled: true,
   aiProvider: {
-    active:    'openai',
-    openai:    { apiKey: '', model: 'gpt-4o' },
+    active: 'openai',
+    openai: { apiKey: '', model: 'gpt-4o' },
     anthropic: { apiKey: '', model: 'claude-opus-4-5' },
-    gemini:    { apiKey: '', model: 'gemini-2.0-flash' },
-    ollama:    { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+    gemini: { apiKey: '', model: 'gemini-2.0-flash' },
+    ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
   },
 
-  setAIProvider:   (patch) => { set((s) => ({ aiProvider: { ...s.aiProvider, ...patch } })); _save(get()) },
+  setAIProvider: (patch) => { set((s) => ({ aiProvider: { ...s.aiProvider, ...patch } })); _save(get()) },
   setAIContextEnabled: (val) => { set({ aiContextEnabled: val }); _save(get()) },
 
   aiNewChat: () => {
@@ -138,8 +162,11 @@ export const useWorkspaceStore = create((set, get) => ({
 
   // ── ReactFlow wiring ────────────────────────────────────────────────────────
   onNodesChange: (changes) => {
+    // Filter out any changes targeting zone label nodes (they're virtual, not persisted)
+    const realChanges = changes.filter(c => !c.id?.startsWith('__zone_'))
+    if (!realChanges.length) return
     set((s) => {
-      const updated = applyNodeChanges(changes, s.nodes)
+      const updated = applyNodeChanges(realChanges, s.nodes)
       const zMap = Object.fromEntries(s.nodes.map(n => [n.id, n.zIndex]))
       return { nodes: updated.map(n => zMap[n.id] != null ? { ...n, zIndex: zMap[n.id] } : n) }
     })
@@ -150,7 +177,8 @@ export const useWorkspaceStore = create((set, get) => ({
   },
   setViewport: (vp) => {
     set((s) => ({
-      workspaces: s.workspaces.map(w => 
+      viewportCenter: { x: -vp.x + (window.innerWidth / 2) / vp.zoom, y: -vp.y + (window.innerHeight / 2) / vp.zoom },
+      workspaces: s.workspaces.map(w =>
         w.id === s.activeWorkspaceId ? { ...w, viewport: vp } : w
       )
     }))
@@ -171,30 +199,34 @@ export const useWorkspaceStore = create((set, get) => ({
   // ── Add web node ────────────────────────────────────────────────────────────
   addWebNode: ({ url, title, favicon, position, workspaceId, pinned } = {}) => {
     const s = get()
-    const id = `web_${Date.now()}_${Math.random().toString(36).slice(2,6)}`
-    const pos = position ?? { x: 200 + Math.random() * 280, y: 100 + Math.random() * 200 }
+    const wsId = workspaceId ?? s.activeWorkspaceId
+    const ws = s.workspaces.find(w => w.id === wsId)
+    const origin = ws?.origin ?? { x: 0, y: 0 }
+    const id = `web_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    // Position relative to workspace origin
+    const pos = position ?? { x: origin.x + 200 + Math.random() * 280, y: origin.y + 100 + Math.random() * 200 }
     const z = nextZ()
     const node = {
       id,
       type: 'webNode',
       position: pos,
       data: {
-        url:          url     ?? 'https://www.google.com',
-        title:        title   ?? 'New Tab',
-        favicon:      favicon ?? null,
-        isLoading:    true,
-        workspaceId:   workspaceId ?? s.activeWorkspaceId,
-        pinned:       pinned  ?? false,
-        minimized:    false,
-        createdAt:    Date.now(),
-        note:         '',
-        isNoteOpen:   false,
+        url: url ?? 'https://www.google.com',
+        title: title ?? 'New Tab',
+        favicon: favicon ?? null,
+        isLoading: true,
+        workspaceId: wsId,
+        pinned: pinned ?? false,
+        minimized: false,
+        createdAt: Date.now(),
+        note: '',
+        isNoteOpen: false,
         // Tab stack — each entry: { url, title, favicon }
-        tabs:         [{ url: url ?? 'https://www.google.com', title: title ?? 'New Tab', favicon: favicon ?? null }],
+        tabs: [{ url: url ?? 'https://www.google.com', title: title ?? 'New Tab', favicon: favicon ?? null }],
         activeTabIdx: 0,
       },
-      style:      { width: 1280, height: 800, zIndex: z },
-      zIndex:     z,
+      style: { width: 1280, height: 800, zIndex: z },
+      zIndex: z,
       dragHandle: '.node-drag-handle',
     }
     set((s) => ({ nodes: [...s.nodes, node], activeNodeId: id }))
@@ -205,8 +237,11 @@ export const useWorkspaceStore = create((set, get) => ({
   // ── Add IDE node (code + live preview) ──────────────────────────────────────
   addIdeNode: ({ title, html, position, workspaceId } = {}) => {
     const s = get()
+    const wsId = workspaceId ?? s.activeWorkspaceId
+    const ws = s.workspaces.find(w => w.id === wsId)
+    const origin = ws?.origin ?? { x: 0, y: 0 }
     const id = `ide_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    const pos = position ?? { x: 160 + Math.random() * 280, y: 90 + Math.random() * 180 }
+    const pos = position ?? { x: origin.x + 160 + Math.random() * 280, y: origin.y + 90 + Math.random() * 180 }
     const z = nextZ()
     const node = {
       id,
@@ -215,7 +250,7 @@ export const useWorkspaceStore = create((set, get) => ({
       data: {
         title: title ?? 'Live IDE Preview',
         code: html ?? '<!doctype html>\n<html>\n  <head><meta charset="utf-8" /><title>Live IDE</title></head>\n  <body><h1>Hello from Canvascape</h1></body>\n</html>',
-        workspaceId: workspaceId ?? s.activeWorkspaceId,
+        workspaceId: wsId,
         createdAt: Date.now(),
         aiGenerated: true,
       },
@@ -231,16 +266,19 @@ export const useWorkspaceStore = create((set, get) => ({
   // ── Add AI canvas node ───────────────────────────────────────────────────────
   addAICanvasNode: ({ position, workspaceId } = {}) => {
     const s = get()
-    const id  = `ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    const pos = position ?? { x: 200 + Math.random() * 200, y: 80 + Math.random() * 160 }
-    const z   = nextZ()
+    const wsId = workspaceId ?? s.activeWorkspaceId
+    const ws = s.workspaces.find(w => w.id === wsId)
+    const origin = ws?.origin ?? { x: 0, y: 0 }
+    const id = `ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const pos = position ?? { x: origin.x + 200 + Math.random() * 200, y: origin.y + 80 + Math.random() * 160 }
+    const z = nextZ()
     const node = {
       id,
-      type:     'aiNode',
+      type: 'aiNode',
       position: pos,
-      data:     { messages: [], createdAt: Date.now(), workspaceId: workspaceId ?? s.activeWorkspaceId },
-      style:    { width: 360, height: 520, zIndex: z },
-      zIndex:   z,
+      data: { messages: [], createdAt: Date.now(), workspaceId: wsId },
+      style: { width: 360, height: 520, zIndex: z },
+      zIndex: z,
       dragHandle: '.node-drag-handle',
     }
     set((s) => ({ nodes: [...s.nodes, node], activeNodeId: id }))
@@ -258,16 +296,16 @@ export const useWorkspaceStore = create((set, get) => ({
       return existing.id
     }
 
-    const id  = `settings_${Date.now()}`
+    const id = `settings_${Date.now()}`
     const pos = position ?? { x: 200 + Math.random() * 200, y: 80 + Math.random() * 160 }
-    const z   = nextZ()
+    const z = nextZ()
     const node = {
       id,
-      type:     'settingsNode',
+      type: 'settingsNode',
       position: pos,
-      data:     { title: 'Settings', createdAt: Date.now() },
-      style:    { width: 500, height: 600, zIndex: z },
-      zIndex:   z,
+      data: { title: 'Settings', createdAt: Date.now() },
+      style: { width: 500, height: 600, zIndex: z },
+      zIndex: z,
       dragHandle: '.node-drag-handle',
     }
     set((s) => ({ nodes: [...s.nodes, node], activeNodeId: id }))
@@ -279,15 +317,15 @@ export const useWorkspaceStore = create((set, get) => ({
   addGroupNode: ({ position, workspaceId } = {}) => {
     const s = get()
     const workspaces = s.workspaces
-    const ws  = workspaces.find((w) => w.id === workspaceId) ?? s.getActiveWorkspace()
-    const id   = `group_${Date.now()}`
+    const ws = workspaces.find((w) => w.id === workspaceId) ?? s.getActiveWorkspace()
+    const id = `group_${Date.now()}`
     const node = {
       id,
-      type:     'groupFrame',
+      type: 'groupFrame',
       position: position ?? { x: 60, y: 60 },
-      data:     { label: ws?.label ?? 'Group', color: ws?.color ?? '#A78BFA', bg: ws?.bg ?? 'rgba(167,139,250,0.08)', workspaceId: ws?.id ?? null },
-      style:    { width: 820, height: 560 },
-      zIndex:   1,
+      data: { label: ws?.label ?? 'Group', color: ws?.color ?? '#A78BFA', bg: ws?.bg ?? 'rgba(167,139,250,0.08)', workspaceId: ws?.id ?? null },
+      style: { width: 820, height: 560 },
+      zIndex: 1,
       dragHandle: '.group-drag-handle',
     }
     set((s) => ({ nodes: [node, ...s.nodes] }))
@@ -310,26 +348,26 @@ export const useWorkspaceStore = create((set, get) => ({
     const node = get().nodes.find((n) => n.id === id)
     if (node?.type === 'webNode') {
       const histEntry = {
-        id:       `hist_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
-        url:      node.data.url,
-        title:    node.data.title,
-        favicon:  node.data.favicon,
-        note:     node.data.note || '',
+        id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        url: node.data.url,
+        title: node.data.title,
+        favicon: node.data.favicon,
+        note: node.data.note || '',
         closedAt: Date.now(),
-        pinned:   node.data.pinned || false,
+        pinned: node.data.pinned || false,
       }
       set((s) => ({
-        workspaces: s.workspaces.map(w => 
+        workspaces: s.workspaces.map(w =>
           w.id === (node.data.workspaceId || s.activeWorkspaceId)
             ? { ...w, sessionHistory: [histEntry, ...w.sessionHistory].slice(0, 40) }
             : w
         ),
-        nodes:          s.nodes.filter((n) => n.id !== id),
-        activeNodeId:   s.activeNodeId === id ? null : s.activeNodeId,
+        nodes: s.nodes.filter((n) => n.id !== id),
+        activeNodeId: s.activeNodeId === id ? null : s.activeNodeId,
       }))
     } else {
       set((s) => ({
-        nodes:        s.nodes.filter((n) => n.id !== id),
+        nodes: s.nodes.filter((n) => n.id !== id),
         activeNodeId: s.activeNodeId === id ? null : s.activeNodeId,
       }))
     }
@@ -344,11 +382,11 @@ export const useWorkspaceStore = create((set, get) => ({
     const newId = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
     const dup = {
       ...src,
-      id:       newId,
+      id: newId,
       position: { x: src.position.x + 40, y: src.position.y + 40 },
-      zIndex:   z,
-      style:    { ...src.style, zIndex: z },
-      data:     { ...src.data, createdAt: Date.now(), pinned: false, minimized: false, note: '', isNoteOpen: false },
+      zIndex: z,
+      style: { ...src.style, zIndex: z },
+      data: { ...src.data, createdAt: Date.now(), pinned: false, minimized: false, note: '', isNoteOpen: false },
     }
     set((s) => ({ nodes: [...s.nodes, dup], activeNodeId: newId }))
     _save(get())
@@ -371,15 +409,15 @@ export const useWorkspaceStore = create((set, get) => ({
           zIndex: z,
           data: {
             ...n.data,
-            minimized:   willMinimize,
-            _fullWidth:  willMinimize ? (n.style?.width  ?? 680) : n.data._fullWidth,
+            minimized: willMinimize,
+            _fullWidth: willMinimize ? (n.style?.width ?? 680) : n.data._fullWidth,
             _fullHeight: willMinimize ? (n.style?.height ?? 480) : n.data._fullHeight,
           },
           style: {
             ...n.style,
             zIndex: z,
-            width:  willMinimize ? 160 : Math.max(n.data._fullWidth  ?? 1280, 1280),
-            height: willMinimize ? 200 : Math.max(n.data._fullHeight ?? 800,  800),
+            width: willMinimize ? 160 : Math.max(n.data._fullWidth ?? 1280, 1280),
+            height: willMinimize ? 200 : Math.max(n.data._fullHeight ?? 800, 800),
           },
         }
       }),
@@ -411,9 +449,9 @@ export const useWorkspaceStore = create((set, get) => ({
     const existingTabs = node.data.tabs?.length
       ? node.data.tabs
       : [{ url: node.data.url, title: node.data.title, favicon: node.data.favicon }]
-    const newTab   = { url, title: title || url, favicon: favicon || null }
-    const newTabs  = [...existingTabs, newTab]
-    const newIdx   = newTabs.length - 1
+    const newTab = { url, title: title || url, favicon: favicon || null }
+    const newTabs = [...existingTabs, newTab]
+    const newIdx = newTabs.length - 1
     set((s) => ({
       nodes: s.nodes.map((n) => n.id === nodeId
         ? { ...n, data: { ...n.data, tabs: newTabs, activeTabIdx: newIdx, url, title: newTab.title, favicon: newTab.favicon, isLoading: true } }
@@ -448,9 +486,9 @@ export const useWorkspaceStore = create((set, get) => ({
       ? node.data.tabs
       : [{ url: node.data.url, title: node.data.title, favicon: node.data.favicon }]
     if (tabs.length <= 1) { get().removeNode(nodeId); return }
-    const newTabs  = tabs.filter((_, i) => i !== tabIdx)
+    const newTabs = tabs.filter((_, i) => i !== tabIdx)
     const newActive = Math.min(tabIdx, newTabs.length - 1)
-    const target   = newTabs[newActive]
+    const target = newTabs[newActive]
     set((s) => ({
       nodes: s.nodes.map((n) => n.id === nodeId
         ? { ...n, data: { ...n.data, tabs: newTabs, activeTabIdx: newActive, url: target.url, title: target.title, favicon: target.favicon, isLoading: true } }
@@ -462,7 +500,7 @@ export const useWorkspaceStore = create((set, get) => ({
   // ── Session history ─────────────────────────────────────────────────────────
   clearHistory: () => {
     set((s) => ({
-      workspaces: s.workspaces.map(w => 
+      workspaces: s.workspaces.map(w =>
         w.id === s.activeWorkspaceId ? { ...w, sessionHistory: [] } : w
       )
     }))
@@ -472,8 +510,8 @@ export const useWorkspaceStore = create((set, get) => ({
     get().addWebNode({ url: histEntry.url, title: histEntry.title, favicon: histEntry.favicon, pinned: histEntry.pinned })
     // Remove from history after restore
     set((s) => ({
-      workspaces: s.workspaces.map(w => 
-        w.id === s.activeWorkspaceId 
+      workspaces: s.workspaces.map(w =>
+        w.id === s.activeWorkspaceId
           ? { ...w, sessionHistory: w.sessionHistory.filter((h) => h.id !== histEntry.id) }
           : w
       )
@@ -483,10 +521,13 @@ export const useWorkspaceStore = create((set, get) => ({
 
   // ── Workspaces ──────────────────────────────────────────────────────────────
   addWorkspace: (label) => {
-    const idx = get().workspaces.length % PALETTE.length
-    const id  = `ws_${Date.now()}`
+    const s = get()
+    const idx = s.workspaces.length % PALETTE.length
+    const id = `ws_${Date.now()}`
+    const existingOrigins = s.workspaces.map(w => w.origin).filter(Boolean)
+    const origin = generateOrigin(existingOrigins)
     set((s) => ({
-      workspaces: [...s.workspaces, { id, label, ...PALETTE[idx], sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } }],
+      workspaces: [...s.workspaces, { id, label, ...PALETTE[idx], sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 }, origin }],
       activeWorkspaceId: id,
     }))
     _save(get())
@@ -504,25 +545,30 @@ export const useWorkspaceStore = create((set, get) => ({
     _save(get())
   },
   removeWorkspace: (id) => {
+    if (get().workspaces.length <= 1) {
+      alert('You cannot delete the last workspace.')
+      return
+    }
     set((s) => {
       const nextWs = s.workspaces.filter((w) => w.id !== id)
+      const newActiveId = s.activeWorkspaceId === id ? (nextWs[0]?.id ?? null) : s.activeWorkspaceId
       return {
         workspaces: nextWs,
-        activeWorkspaceId: s.activeWorkspaceId === id ? (nextWs[0]?.id ?? null) : s.activeWorkspaceId,
-        nodes: s.nodes.map((n) => n.data?.workspaceId === id ? { ...n, data: { ...n.data, workspaceId: null } } : n),
+        activeWorkspaceId: newActiveId,
+        nodes: s.nodes.map((n) => n.data?.workspaceId === id ? { ...n, data: { ...n.data, workspaceId: newActiveId } } : n),
       }
     })
     _save(get())
   },
 
   // ── UI state ────────────────────────────────────────────────────────────────
-  setFilter:        (f)   => { set({ filter: f }); _save(get()) },
-  toggleSidebar:    ()    => { set((s) => ({ isSidebarOpen: !s.isSidebarOpen })); _save(get()) },
-  setComposerOpen:  (val) => set({ isComposerOpen: val }),
-  setCommandOpen:   (val) => set({ isCommandOpen: val }),
-  toggleAIPanel:    ()    => { set((s) => ({ isAIPanelOpen: !s.isAIPanelOpen })); _save(get()) },
-  setAIPanelOpen:   (val) => { set({ isAIPanelOpen: val }); _save(get()) },
-  toggleTheme:     ()    => {
+  setFilter: (f) => { set({ filter: f }); _save(get()) },
+  toggleSidebar: () => { set((s) => ({ isSidebarOpen: !s.isSidebarOpen })); _save(get()) },
+  setComposerOpen: (val) => set({ isComposerOpen: val }),
+  setCommandOpen: (val) => set({ isCommandOpen: val }),
+  toggleAIPanel: () => { set((s) => ({ isAIPanelOpen: !s.isAIPanelOpen })); _save(get()) },
+  setAIPanelOpen: (val) => { set({ isAIPanelOpen: val }); _save(get()) },
+  toggleTheme: () => {
     set((s) => {
       const next = s.theme === 'dark' ? 'light' : 'dark'
       document.documentElement.setAttribute('data-theme', next)
@@ -542,32 +588,63 @@ export const useWorkspaceStore = create((set, get) => ({
         }
         const theme = saved.theme ?? 'dark'
         document.documentElement.setAttribute('data-theme', theme)
-        
+
         // Handle migration from old versions
-        const workspaces = saved.workspaces ?? (saved.categories?.map(c => ({
+        let workspaces = saved.workspaces ?? (saved.categories?.map(c => ({
           ...c,
           sessionHistory: saved.sessionHistory ?? [],
           viewport: saved.viewport ?? { x: 0, y: 0, zoom: 1 }
         })) ?? DEFAULT_WORKSPACES)
 
+        // ── v5 → v6 migration: assign origins to workspaces that don't have them ──
+        let nodes = saved.nodes ?? []
+        const needsOriginMigration = workspaces.some(w => !w.origin)
+        if (needsOriginMigration) {
+          const assignedOrigins = []
+          workspaces = workspaces.map((w, i) => {
+            if (w.origin) { assignedOrigins.push(w.origin); return w }
+            // First workspace stays at center, others get random origins
+            const origin = i === 0 ? { x: 0, y: 0 } : generateOrigin(assignedOrigins)
+            assignedOrigins.push(origin)
+            return { ...w, origin }
+          })
+          // Reposition existing nodes relative to their workspace's origin
+          nodes = nodes.map(n => {
+            const wsId = n.data?.workspaceId
+            if (!wsId) return n
+            const ws = workspaces.find(w => w.id === wsId)
+            if (!ws?.origin || (ws.origin.x === 0 && ws.origin.y === 0)) return n
+            return {
+              ...n,
+              position: {
+                x: (n.position?.x ?? 0) + ws.origin.x,
+                y: (n.position?.y ?? 0) + ws.origin.y,
+              },
+            }
+          })
+        }
+
         const activeWorkspaceId = saved.activeWorkspaceId ?? (saved.activeCategoryId ?? workspaces[0].id)
 
         set({
-          nodes:            saved.nodes            ?? [],
-          edges:            saved.edges            ?? [],
+          nodes,
+          edges: saved.edges ?? [],
           workspaces,
           activeWorkspaceId,
           theme,
-          isSidebarOpen:    saved.isSidebarOpen    ?? true,
-          isAIPanelOpen:    saved.isAIPanelOpen    ?? false,
-          filter:           saved.filter           ?? 'all',
-          aiProvider:       saved.aiProvider       ?? get().aiProvider,
-          aiConversations:  saved.aiConversations  ?? [],
-          aiCurrentId:      saved.aiCurrentId      ?? (saved.aiConversations?.[0]?.id ?? null),
+          isSidebarOpen: saved.isSidebarOpen ?? true,
+          isAIPanelOpen: saved.isAIPanelOpen ?? false,
+          filter: saved.filter ?? 'all',
+          aiProvider: saved.aiProvider ?? get().aiProvider,
+          aiConversations: saved.aiConversations ?? [],
+          aiCurrentId: saved.aiCurrentId ?? (saved.aiConversations?.[0]?.id ?? null),
           aiContextEnabled: saved.aiContextEnabled ?? true,
         })
+
+        // Save immediately if we migrated to persist the new origins
+        if (needsOriginMigration) _save(get())
       }
     } catch (e) { console.error('Load failed', e) }
-    finally    { set({ isLoading: false }) }
+    finally { set({ isLoading: false }) }
   },
 }))

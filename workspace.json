@@ -1,37 +1,159 @@
 {
-  "nodes": [],
+  "nodes": [
+    {
+      "id": "web_1772461510771_q01s",
+      "type": "webNode",
+      "position": {
+        "x": -1460.588057180532,
+        "y": -6894.660771252235
+      },
+      "data": {
+        "url": "https://www.youtube.com/",
+        "title": "YouTube",
+        "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
+        "isLoading": false,
+        "workspaceId": "cat_work",
+        "pinned": false,
+        "minimized": false,
+        "createdAt": 1772461510771,
+        "note": "",
+        "isNoteOpen": false,
+        "tabs": [
+          {
+            "url": "https://www.youtube.com/",
+            "title": "YouTube",
+            "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico"
+          }
+        ],
+        "activeTabIdx": 0
+      },
+      "style": {
+        "width": 1280,
+        "height": 856,
+        "zIndex": 118
+      },
+      "zIndex": 135,
+      "dragHandle": ".node-drag-handle",
+      "width": 1280,
+      "height": 856,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -1460.588057180532,
+        "y": -6894.660771252235
+      },
+      "dragging": false,
+      "resizing": false
+    },
+    {
+      "id": "web_1772463223302_c5lp",
+      "type": "webNode",
+      "position": {
+        "x": 647.2521032125562,
+        "y": 124.68384770966051
+      },
+      "data": {
+        "url": "https://www.youtube.com/",
+        "title": "YouTube",
+        "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
+        "isLoading": false,
+        "workspaceId": "cat_research",
+        "pinned": false,
+        "minimized": false,
+        "createdAt": 1772463223302,
+        "note": "",
+        "isNoteOpen": false,
+        "tabs": [
+          {
+            "url": "https://www.youtube.com/",
+            "title": "YouTube",
+            "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico"
+          }
+        ],
+        "activeTabIdx": 0
+      },
+      "style": {
+        "width": 1280,
+        "height": 800,
+        "zIndex": 136
+      },
+      "zIndex": 137,
+      "dragHandle": ".node-drag-handle",
+      "width": 1280,
+      "height": 800,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 647.2521032125562,
+        "y": 124.68384770966051
+      },
+      "dragging": false
+    }
+  ],
   "edges": [],
-  "viewport": {
-    "x": 75,
-    "y": -200,
-    "zoom": 1
-  },
-  "categories": [
+  "workspaces": [
     {
       "id": "cat_work",
       "label": "Work",
       "color": "#A78BFA",
       "bg": "rgba(167,139,250,0.08)",
-      "emoji": "💼"
+      "emoji": null,
+      "sessionHistory": [
+        {
+          "id": "hist_1772461172136_1kn",
+          "url": "https://www.youtube.com/",
+          "title": "YouTube",
+          "favicon": "https://www.youtube.com/s/desktop/18bfd1c0/img/favicon.ico",
+          "note": "",
+          "closedAt": 1772461172136,
+          "pinned": false
+        }
+      ],
+      "viewport": {
+        "x": 528.9601183141375,
+        "y": 490.3490647875018,
+        "zoom": 0.04000000000000003
+      },
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
     },
     {
       "id": "cat_research",
       "label": "Research",
       "color": "#60A5FA",
       "bg": "rgba(96,165,250,0.08)",
-      "emoji": "🔬"
+      "emoji": "🔬",
+      "sessionHistory": [],
+      "viewport": {
+        "x": -455.4597311310929,
+        "y": -62.79216938743812,
+        "zoom": 0.8145817661637652
+      },
+      "origin": {
+        "x": -11146,
+        "y": -7280
+      }
     },
     {
       "id": "cat_personal",
       "label": "Personal",
       "color": "#34D399",
       "bg": "rgba(52,211,153,0.08)",
-      "emoji": "🏠"
+      "emoji": "🏠",
+      "sessionHistory": [],
+      "viewport": {
+        "x": 75,
+        "y": -200,
+        "zoom": 1
+      },
+      "origin": {
+        "x": -10968,
+        "y": 11716
+      }
     }
   ],
-  "activeCategoryId": null,
+  "activeWorkspaceId": "cat_research",
   "theme": "light",
-  "sessionHistory": [],
   "aiProvider": {
     "active": "ollama",
     "openai": {
@@ -57,6 +179,6 @@
   "isAIPanelOpen": false,
   "filter": "all",
   "aiContextEnabled": true,
-  "version": 4,
-  "savedAt": 1772457995756
+  "version": 6,
+  "savedAt": 1772463249049
 }
