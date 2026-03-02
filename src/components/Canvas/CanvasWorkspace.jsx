@@ -9,12 +9,13 @@ import CanvasContextMenu from './CanvasContextMenu'
 import WorkspaceToolbar  from '../UI/WorkspaceToolbar'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import AICanvasNode from '../AI/AICanvasNode'
+import { normalizeUrl, titleFromUrl, faviconUrl } from '../../utils/urlUtils'
 
 const NODE_TYPES = { webNode: WebNode, ideNode: IDENode, groupFrame: GroupFrame, aiNode: AICanvasNode }
 
 function CanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, viewport, setViewport,
-    setActiveNode, activeNodeId, filter, theme } = useWorkspaceStore()
+    setActiveNode, activeNodeId, filter, addWebNode } = useWorkspaceStore()
   const { contextMenu, openMenu, closeMenu } = useContextMenu()
   const rf = useReactFlow()
 
@@ -30,11 +31,23 @@ function CanvasInner() {
     return () => window.removeEventListener('canvas:flyto', h)
   }, [rf, setActiveNode])
 
-  const onMoveEnd     = useCallback((_, vp) => setViewport(vp), [setViewport])
-  const onPaneClick   = useCallback(() => { setActiveNode(null); closeMenu() }, [setActiveNode, closeMenu])
-  const onPaneCtx     = useCallback((e) => { e.preventDefault(); openMenu({ x: e.clientX, y: e.clientY, type: 'pane' }) }, [openMenu])
-  const onNodeCtx     = useCallback((e, n) => { e.preventDefault(); openMenu({ x: e.clientX, y: e.clientY, type: 'node', nodeId: n.id }) }, [openMenu])
-  const onNodeClick   = useCallback((_, n) => setActiveNode(n.id), [setActiveNode])
+  // Open URL fired by webview right-click "Open Link in New Tab"
+  useEffect(() => {
+    const h = (e) => {
+      const url = e.detail?.url
+      if (!url) return
+      addWebNode({ url: normalizeUrl(url), title: titleFromUrl(url), favicon: faviconUrl(url),
+        position: { x: 200 + Math.random() * 280, y: 100 + Math.random() * 180 } })
+    }
+    window.addEventListener('canvas:openurl', h)
+    return () => window.removeEventListener('canvas:openurl', h)
+  }, [addWebNode])
+
+  const onMoveEnd   = useCallback((_, vp) => setViewport(vp), [setViewport])
+  const onPaneClick = useCallback(() => { setActiveNode(null); closeMenu() }, [setActiveNode, closeMenu])
+  const onPaneCtx   = useCallback((e) => { e.preventDefault(); openMenu({ x: e.clientX, y: e.clientY, type: 'pane' }) }, [openMenu])
+  const onNodeCtx   = useCallback((e, n) => { e.preventDefault(); openMenu({ x: e.clientX, y: e.clientY, type: 'node', nodeId: n.id }) }, [openMenu])
+  const onNodeClick = useCallback((_, n) => setActiveNode(n.id), [setActiveNode])
 
   const displayNodes = filter === 'all' ? nodes : nodes.map(n => {
     if (n.type !== 'webNode') return n
@@ -58,9 +71,15 @@ function CanvasInner() {
         minZoom={0.06} maxZoom={2}
         edgesUpdatable={false} edgesFocusable={false}
         nodesConnectable={false} selectNodesOnDrag={false}
-        panOnDrag={[1, 2]} panOnScroll={true} panOnScrollMode="free"
-        panOnScrollSpeed={0.6} zoomOnScroll={false} zoomOnPinch={true}
-        preventScrolling={true} elevateNodesOnSelect={false}
+        panOnDrag={[1, 2]}
+        panOnScroll={true}
+        panOnScrollMode="free"
+        panOnScrollSpeed={0.6}
+        zoomOnScroll={false}
+        zoomOnPinch={true}
+        zoomActivationKeyCode="Control"
+        preventScrolling={true}
+        elevateNodesOnSelect={false}
         proOptions={{ hideAttribution: true }}
         style={{ background: 'var(--canvas)' }}>
 
@@ -91,11 +110,10 @@ function EmptyState() {
           </svg>
         </div>
         <p className="empty-title">Your canvas is empty</p>
-        <p className="empty-sub">
-          Press <kbd className="empty-kbd">Ctrl+N</kbd> to open your first tab
-        </p>
+        <p className="empty-sub">Press <kbd className="empty-kbd">Ctrl+N</kbd> to open your first tab</p>
         <p style={{ fontSize: 12, color: 'var(--t3)', marginTop: 20, lineHeight: 1.8 }}>
-          Drag tabs around · Resize with handles · Right-click for options
+          Drag tabs · Resize with handles · Right-click for options<br/>
+          Ctrl+Scroll or Pinch to zoom · Scroll or 2-finger swipe to pan
         </p>
       </div>
     </div>

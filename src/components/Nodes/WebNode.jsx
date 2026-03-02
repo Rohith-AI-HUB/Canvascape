@@ -21,6 +21,18 @@ const WebNode = memo(function WebNode({ id, data }) {
   // Track the URL we've navigated the webview to, so we can avoid redundant loads
   const lastNavUrl  = useRef(null)
 
+  // ── GPU bleed-through fix ────────────────────────────────────────────────
+  // Electron webviews have their own accelerated compositing layer that renders
+  // ABOVE the React tree regardless of `visibility: hidden` on ancestor elements.
+  // The only reliable fix is to imperatively set display:none on the webview
+  // element itself when minimized. The webview process stays alive (session,
+  // cookies, auth all preserved), but GPU compositing stops completely.
+  useEffect(() => {
+    const wv = webviewRef.current
+    if (!wv) return
+    wv.style.display = isMinimized ? 'none' : 'block'
+  }, [isMinimized])
+
   // Set src ONCE on mount
   useEffect(() => {
     const wv = webviewRef.current

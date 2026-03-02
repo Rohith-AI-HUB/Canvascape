@@ -1,5 +1,6 @@
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { useReactFlow } from 'reactflow'
+import { useReactFlow, useViewport } from 'reactflow'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { AIIcon } from '../AI/AIPanel'
 
@@ -11,9 +12,11 @@ const FILTERS = [
 
 export default function WorkspaceToolbar() {
   const { filter, setFilter, nodes, theme, addAICanvasNode } = useWorkspaceStore()
-  const rf     = useReactFlow()
-  const count  = nodes.filter(n => n.type === 'webNode').length
-  const isDark = theme === 'dark'
+  const rf        = useReactFlow()
+  const { zoom }  = useViewport()
+  const count     = nodes.filter(n => n.type === 'webNode').length
+  const isDark    = theme === 'dark'
+  const zoomPct   = Math.round(zoom * 100)
 
   const pillStyle = {
     display: 'flex', alignItems: 'center', gap: 2, padding: 3,
@@ -118,11 +121,15 @@ export default function WorkspaceToolbar() {
         <TBtn title="Zoom in"  onClick={() => rf.zoomIn({ duration: 160 })}>
           <path d="M8 4v8M4 8h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
         </TBtn>
+
+        {/* Live zoom percentage — click to snap to 100% */}
+        <ZoomLevel pct={zoomPct} isDark={isDark} onReset={() => rf.zoomTo(1, { duration: 220 })} />
+
         <TBtn title="Zoom out" onClick={() => rf.zoomOut({ duration: 160 })}>
           <path d="M4 8h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
         </TBtn>
         <div style={{ width: 1, height: 16, background: isDark ? 'rgba(255,245,220,0.08)' : 'rgba(100,80,40,0.12)', margin: '0 2px' }}/>
-        <TBtn title="Fit all" onClick={() => rf.fitView({ padding: 0.15, duration: 450 })}>
+        <TBtn title="Fit all tabs in view" onClick={() => rf.fitView({ padding: 0.15, duration: 450 })}>
           <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </TBtn>
       </div>
@@ -156,6 +163,46 @@ function TBtn({ onClick, title, children }) {
       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--t3)' }}
     >
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">{children}</svg>
+    </button>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ZoomLevel — live percentage display, click to reset to 100%
+// ─────────────────────────────────────────────────────────────────────────────
+function ZoomLevel({ pct, isDark, onReset }) {
+  const [flash, setFlash] = useState(false)
+  const prevPct = useRef(pct)
+
+  // Flash amber briefly whenever the zoom level changes
+  useEffect(() => {
+    if (pct === prevPct.current) return
+    prevPct.current = pct
+    setFlash(true)
+    const t = setTimeout(() => setFlash(false), 500)
+    return () => clearTimeout(t)
+  }, [pct])
+
+  const isAt100 = pct === 100
+
+  return (
+    <button
+      onClick={onReset}
+      title={isAt100 ? 'Already at 100%' : 'Reset zoom to 100%'}
+      style={{
+        minWidth: 44, height: 30, padding: '0 6px',
+        borderRadius: 7, border: 'none', cursor: isAt100 ? 'default' : 'pointer',
+        background: flash ? 'var(--a-bg)' : 'transparent',
+        color: flash ? 'var(--a)' : isAt100 ? 'var(--t4)' : 'var(--t2)',
+        fontSize: 11.5, fontWeight: 600, fontFamily: "'DM Mono', monospace",
+        letterSpacing: '0.02em',
+        transition: 'background 200ms, color 200ms',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      onMouseEnter={e => { if (!isAt100) { e.currentTarget.style.background = 'var(--s3)'; e.currentTarget.style.color = 'var(--a)' } }}
+      onMouseLeave={e => { if (!isAt100) { e.currentTarget.style.background = flash ? 'var(--a-bg)' : 'transparent'; e.currentTarget.style.color = flash ? 'var(--a)' : 'var(--t2)' } }}
+    >
+      {pct}%
     </button>
   )
 }

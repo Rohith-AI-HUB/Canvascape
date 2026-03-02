@@ -6,6 +6,39 @@ import { AIIcon } from './AIPanel'
 import MarkdownMessage from './MarkdownMessage'
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Scroll isolation hook
+// Attaches a NATIVE wheel event listener (not React synthetic) that calls
+// stopPropagation() on the raw DOM event. This is the only reliable way to
+// prevent ReactFlow's own native listeners (preventScrolling + panOnScroll)
+// from consuming wheel events meant for scrollable child elements.
+// React's onWheelCapture/onWheel only touches synthetic events and has
+// zero effect on ReactFlow's native DOM addEventListener listeners.
+// ─────────────────────────────────────────────────────────────────────────────
+function useScrollIsolation() {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const stop = (e) => {
+      // stopPropagation on the NATIVE event — prevents bubble reaching
+      // ReactFlow's native wheel listener which calls e.preventDefault()
+      // (which is what kills scroll inside nodes).
+      e.stopPropagation()
+      // Do NOT call preventDefault — the browser must handle the scroll itself.
+    }
+    // Attach in bubble phase so we fire at this element before it reaches
+    // ReactFlow's listener on the ancestor container.
+    el.addEventListener('wheel', stop, { passive: true })
+    el.addEventListener('touchmove', stop, { passive: true })
+    return () => {
+      el.removeEventListener('wheel', stop, { passive: true })
+      el.removeEventListener('touchmove', stop, { passive: true })
+    }
+  }, [])
+  return ref
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 const PROVIDERS = [
@@ -64,7 +97,6 @@ const SUGGESTIONS = [
   { icon: '🔗', text: 'Find connections between my tabs' },
 ]
 
-// Slash commands
 const COMMANDS = [
   { cmd: '/clear',   desc: 'Clear current conversation' },
   { cmd: '/new',     desc: 'Start a new conversation' },
@@ -80,7 +112,6 @@ function newConv() {
 }
 
 function initConvs(data) {
-  // Migrate legacy flat messages into a conversations array
   if (data.conversations?.length) return { conversations: data.conversations, activeConvId: data.activeConvId || data.conversations[0].id }
   const cv = newConv()
   if (data.messages?.length) { cv.messages = data.messages; cv.title = data.messages.find(m => m.role === 'user')?.content?.slice(0, 52) || 'Chat' }
@@ -91,7 +122,7 @@ function initConvs(data) {
 // Main node
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AICanvasNode({ id, data, selected }) {
-  const { updateNodeData, removeNode, nodes, aiProvider, setAIProvider, aiContextEnabled, setAIContextEnabled, theme } = useWorkspaceStore()
+  const { updateNodeData, removeNode, nodes, aiProvider, setAIProvider, aiContextEnabled, setAIContextEnabled, setActiveNode, theme } = useWorkspaceStore()
 
   const init = useMemo(() => initConvs(data), []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -101,14 +132,16 @@ export default function AICanvasNode({ id, data, selected }) {
   const [input,     setInput]     = useState('')
   const [streaming, setStreaming] = useState(false)
   const [error,     setError]     = useState(null)
-  const [cmdMenu,   setCmdMenu]   = useState(false) // slash-command popup open
+  const [cmdMenu,   setCmdMenu]   = useState(false)
+  // Track our own active state so resize handles are shown reliably
+  // without depending solely on ReactFlow's `selected` prop timing.
+  const [isActive, setIsActive]   = useState(false)
 
   const abortRef  = useRef(null)
   const bottomRef = useRef(null)
   const taRef     = useRef(null)
   const isDark    = theme === 'dark'
 
-  // Derived active conversation
   const activeConv   = conversations.find(c => c.id === activeConvId) || conversations[0]
   const messages     = activeConv?.messages || []
   const activeProv   = PROVIDERS.find(p => p.id === aiProvider.active) || PROVIDERS[0]
@@ -116,24 +149,43 @@ export default function AICanvasNode({ id, data, selected }) {
   const surface      = d ? 'rgba(18,17,14,0.98)' : 'rgba(253,252,248,0.98)'
   const border       = d ? 'rgba(255,245,220,0.09)' : 'rgba(100,80,40,0.13)'
 
-  // Persist to node data whenever conversations change
+  // Show resize handles when either ReactFlow says selected OR our own isActive is true
+  const showResizer = selected || isActive
+
+  // Bring node to front and mark active on any mousedown on the card
+  const handleCardMouseDown = useCallback((e) => {
+    setIsActive(true)
+    setActiveNode(id)
+    // Do NOT stop propagation here — ReactFlow needs to see this to properly
+    // select the node (selected prop) and manage z-order internally.
+  }, [id, setActiveNode])
+
+  // Deactivate when clicking elsewhere (listen on window)
+  useEffect(() => {
+    const onDown = (e) => {
+      // If click landed outside this node's card, clear active
+      if (!e.target.closest(`[data-nodeid="${id}"]`)) {
+        setIsActive(false)
+      }
+    }
+    window.addEventListener('mousedown', onDown, { capture: true })
+    return () => window.removeEventListener('mousedown', onDown, { capture: true })
+  }, [id])
+
   useEffect(() => {
     updateNodeData(id, { conversations, activeConvId, messages: undefined })
   }, [conversations, activeConvId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll to bottom on new message
   useEffect(() => {
     if (tab === 'chat') bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length, tab])
 
-  // Auto-grow textarea
   useEffect(() => {
     if (!taRef.current) return
     taRef.current.style.height = 'auto'
     taRef.current.style.height = Math.min(taRef.current.scrollHeight, 100) + 'px'
   }, [input])
 
-  // Slash command menu
   const filteredCmds = useMemo(() => {
     if (!input.startsWith('/')) return []
     return COMMANDS.filter(c => c.cmd.startsWith(input.toLowerCase().split(' ')[0]))
@@ -186,7 +238,7 @@ export default function AICanvasNode({ id, data, selected }) {
     return `You are an AI assistant embedded as a card in Canvascape, a spatial canvas browser.\n\nOpen tabs (${tabs.length}):\n${list}\nLive IDE cards: ${ides}\n\nBe concise. When creating a webpage, output complete HTML inside one \`\`\`html block.`
   }, [nodes])
 
-  // ── Execute slash commands ────────────────────────────────────────────────────
+  // ── Slash commands ────────────────────────────────────────────────────────────
   const execCommand = useCallback((cmd) => {
     setInput('')
     setCmdMenu(false)
@@ -214,12 +266,11 @@ export default function AICanvasNode({ id, data, selected }) {
     }
   }, [activeConv, messages, updateConv, newChat])
 
-  // ── Send message ─────────────────────────────────────────────────────────────
+  // ── Send ─────────────────────────────────────────────────────────────────────
   const send = useCallback(async (overrideText) => {
     const text = (overrideText ?? input).trim()
     if (!text || streaming) return
 
-    // Intercept slash commands
     if (text.startsWith('/')) {
       const cmd = text.split(' ')[0]
       if (COMMANDS.find(c => c.cmd === cmd)) { execCommand(cmd); return }
@@ -282,7 +333,7 @@ export default function AICanvasNode({ id, data, selected }) {
 
   const onKey = (e) => {
     e.stopPropagation()
-    if (cmdMenu && (e.key === 'Escape')) { setCmdMenu(false); return }
+    if (cmdMenu && e.key === 'Escape') { setCmdMenu(false); return }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
   }
 
@@ -290,28 +341,43 @@ export default function AICanvasNode({ id, data, selected }) {
   return (
     <>
       <NodeResizer
-        isVisible={selected}
+        isVisible={showResizer}
         minWidth={320} minHeight={380}
         lineStyle={{ borderColor: 'var(--a)', borderWidth: 1.5 }}
-        handleStyle={{ width: 10, height: 10, borderRadius: 3, background: 'var(--a-bg)', border: '1.5px solid var(--a)' }}
+        handleStyle={{
+          width: 12, height: 12, borderRadius: 4,
+          background: 'var(--a)', border: '2px solid var(--s1)',
+          boxShadow: '0 0 6px var(--a-glow)',
+          // Always above the card content
+          zIndex: 100,
+        }}
       />
 
-      <div style={{
-        width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-        background: surface,
-        border: `1.5px solid ${selected ? 'var(--bd-a)' : border}`,
-        borderRadius: 16,
-        boxShadow: selected
-          ? `0 0 0 3px var(--a-glow), 0 12px 40px rgba(0,0,0,${d ? 0.6 : 0.14})`
-          : `0 4px 28px rgba(0,0,0,${d ? 0.45 : 0.1})`,
-        fontFamily: "'DM Sans', sans-serif",
-        overflow: 'hidden',
-        transition: 'box-shadow 200ms, border-color 200ms',
-      }}>
+      {/* data-nodeid lets the outside-click detector identify this node's DOM */}
+      <div
+        data-nodeid={id}
+        onMouseDown={handleCardMouseDown}
+        style={{
+          width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+          background: surface,
+          border: `1.5px solid ${showResizer ? 'var(--bd-a)' : border}`,
+          borderRadius: 16,
+          boxShadow: showResizer
+            ? `0 0 0 3px var(--a-glow), 0 12px 40px rgba(0,0,0,${d ? 0.6 : 0.14})`
+            : `0 4px 28px rgba(0,0,0,${d ? 0.45 : 0.1})`,
+          fontFamily: "'DM Sans', sans-serif",
+          overflow: 'hidden',
+          transition: 'box-shadow 200ms, border-color 200ms',
+        }}>
 
-        {/* ── Header ────────────────────────────────────────────────────────── */}
+        {/* ── Header (drag handle) ───────────────────────────────────────── */}
         <div
           className="node-drag-handle"
+          onMouseDown={e => {
+            // Header IS the drag handle — let the event reach ReactFlow for drag.
+            // But stop it from triggering canvas pan.
+            e.stopPropagation()
+          }}
           style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px 0 12px', height: 46, flexShrink: 0, borderBottom: `1px solid ${border}`, cursor: 'grab', userSelect: 'none', background: d ? 'rgba(255,255,255,0.013)' : 'rgba(0,0,0,0.018)' }}
         >
           <div style={{ width: 28, height: 28, borderRadius: 9, background: 'var(--a-bg)', border: '1px solid var(--bd-a)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -325,7 +391,6 @@ export default function AICanvasNode({ id, data, selected }) {
             </div>
           </div>
 
-          {/* Canvas context */}
           <HdrBtn onMouseDown={e => e.stopPropagation()} onClick={() => setAIContextEnabled(!aiContextEnabled)} title={aiContextEnabled ? 'Canvas context on' : 'Canvas context off'} active={aiContextEnabled} d={d}>
             <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
             <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" opacity="0.5"/>
@@ -333,12 +398,10 @@ export default function AICanvasNode({ id, data, selected }) {
             <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3" opacity="0.25"/>
           </HdrBtn>
 
-          {/* New chat */}
           <HdrBtn onMouseDown={e => e.stopPropagation()} onClick={newChat} title="New conversation" d={d}>
             <path d="M7 1.5v5M7 8.5v5M1.5 7h5M8.5 7h5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/>
           </HdrBtn>
 
-          {/* Close */}
           <button onMouseDown={e => e.stopPropagation()} onClick={() => removeNode(id)} title="Close"
             style={{ width: 24, height: 24, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 120ms', flexShrink: 0, padding: 0 }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,65,65,0.1)'; e.currentTarget.style.color = '#F87171' }}
@@ -365,9 +428,10 @@ export default function AICanvasNode({ id, data, selected }) {
 
         {/* ── Input ─────────────────────────────────────────────────────────── */}
         {tab === 'chat' && (
-          <div style={{ flexShrink: 0, padding: '8px 10px 8px', borderTop: `1px solid ${border}`, position: 'relative' }} onMouseDown={e => e.stopPropagation()}>
-
-            {/* Slash command menu */}
+          <div
+            style={{ flexShrink: 0, padding: '8px 10px 8px', borderTop: `1px solid ${border}`, position: 'relative' }}
+            onMouseDown={e => e.stopPropagation()}
+          >
             {cmdMenu && filteredCmds.length > 0 && (
               <div style={{ position: 'absolute', bottom: '100%', left: 10, right: 10, background: surface, border: `1px solid ${border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 4, boxShadow: `0 -4px 20px rgba(0,0,0,${d ? 0.5 : 0.12})`, zIndex: 10 }}>
                 {filteredCmds.map(c => (
@@ -436,12 +500,15 @@ export default function AICanvasNode({ id, data, selected }) {
 // Chat pane
 // ─────────────────────────────────────────────────────────────────────────────
 function ChatPane({ messages, streaming, onSuggest, isDark, border, bottomRef, onDeleteMsg }) {
+  // NATIVE scroll isolation — the only reliable way to prevent ReactFlow's
+  // native wheel listeners (preventScrolling + panOnScroll) from consuming
+  // events meant for this scrollable area.
+  const scrollRef = useScrollIsolation()
+
   return (
     <div
+      ref={scrollRef}
       style={{ flex: 1, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: 8, scrollbarWidth: 'thin' }}
-      onWheelCapture={e => e.stopPropagation()}
-      // Do NOT stopPropagation on mousedown here — it breaks text selection.
-      // Individual non-text elements stop propagation themselves.
     >
       {messages.length === 0
         ? <EmptyState isDark={isDark} onSuggest={onSuggest}/>
@@ -462,13 +529,15 @@ function ChatPane({ messages, streaming, onSuggest, isDark, border, bottomRef, o
 // History pane
 // ─────────────────────────────────────────────────────────────────────────────
 function HistoryPane({ conversations, activeConvId, onOpen, onDelete, isDark, border }) {
+  const scrollRef = useScrollIsolation()
   const d  = isDark
   const s2 = d ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
+
   return (
     <div
+      ref={scrollRef}
       style={{ flex: 1, overflowY: 'auto', padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 5, scrollbarWidth: 'thin' }}
       onMouseDown={e => e.stopPropagation()}
-      onWheelCapture={e => e.stopPropagation()}
     >
       <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 4, paddingLeft: 2 }}>
         {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
@@ -505,7 +574,6 @@ function HistoryPane({ conversations, activeConvId, onOpen, onDelete, isDark, bo
               <div style={{ fontSize: 9.5, color: 'var(--t4)', marginTop: 3 }}>{relTime(conv.updatedAt)} · {msgCount} msg{msgCount !== 1 ? 's' : ''}</div>
             </div>
 
-            {/* Delete button */}
             <button
               onClick={e => { e.stopPropagation(); onDelete(conv.id) }}
               title="Delete conversation"
@@ -526,6 +594,8 @@ function HistoryPane({ conversations, activeConvId, onOpen, onDelete, isDark, bo
 // Settings pane
 // ─────────────────────────────────────────────────────────────────────────────
 function SettingsPane({ provider, setProvider, isDark, border }) {
+  const scrollRef = useScrollIsolation()
+
   const [active,       setActive]       = useState(provider.active)
   const [ollamaModels, setOllamaModels] = useState([])
   const [detecting,    setDetecting]    = useState(false)
@@ -573,9 +643,11 @@ function SettingsPane({ provider, setProvider, isDark, border }) {
   const s2 = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: 15, scrollbarWidth: 'thin' }}
-      onMouseDown={e => e.stopPropagation()} onWheelCapture={e => e.stopPropagation()}>
-
+    <div
+      ref={scrollRef}
+      style={{ flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: 15, scrollbarWidth: 'thin' }}
+      onMouseDown={e => e.stopPropagation()}
+    >
       <div>
         <SLabel>Provider</SLabel>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 5 }}>
@@ -694,7 +766,7 @@ function EmptyState({ isDark, onSuggest }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Message bubble — selectable text, copy + delete on hover
+// Message bubble
 // ─────────────────────────────────────────────────────────────────────────────
 function NodeMsgBubble({ msg, isDark, isStreaming, onDelete }) {
   const [copied, setCopied] = useState(false)
@@ -707,14 +779,11 @@ function NodeMsgBubble({ msg, isDark, isStreaming, onDelete }) {
   }
 
   return (
-    // NOTE: no onMouseDown stopPropagation here — allows native text selection to work.
-    // ReactFlow drag is blocked by the nodesConnectable/selectNodesOnDrag=false settings.
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', gap: 3 }}>
       <span style={{ fontSize: 9.5, color: 'var(--t3)', fontWeight: 600, letterSpacing: '0.04em', paddingLeft: isUser ? 0 : 2, paddingRight: isUser ? 2 : 0 }}>
         {isUser ? 'You' : 'AI'}
       </span>
 
-      {/* Bubble */}
       <div
         style={{
           maxWidth: '93%', padding: '8px 11px',
@@ -723,7 +792,6 @@ function NodeMsgBubble({ msg, isDark, isStreaming, onDelete }) {
             ? (isDark ? 'rgba(245,158,11,0.09)' : 'rgba(217,119,6,0.07)')
             : (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'),
           border: isUser ? '1px solid var(--bd-a)' : `1px solid ${isDark ? 'rgba(255,245,220,0.07)' : 'rgba(100,80,40,0.1)'}`,
-          // ← KEY: allow text selection inside bubbles
           userSelect: 'text',
           cursor: 'text',
         }}
@@ -738,7 +806,6 @@ function NodeMsgBubble({ msg, isDark, isStreaming, onDelete }) {
         <style>{'@keyframes cur-blink{0%,100%{opacity:1}50%{opacity:0}}'}</style>
       </div>
 
-      {/* Action bar — copy + delete — visible below each message */}
       {msg.content && !isStreaming && (
         <div style={{ display: 'flex', gap: 4, paddingLeft: isUser ? 0 : 2, paddingRight: isUser ? 2 : 0 }}>
           <MsgActionBtn onClick={copy} title={copied ? 'Copied!' : 'Copy message'} active={copied} onMouseDown={e => e.stopPropagation()}>

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, session } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, session, Menu, MenuItem } = require('electron')
 
 // Ensure only one instance of the app runs at a time
 if (!app.requestSingleInstanceLock()) {
@@ -11,25 +11,22 @@ app.commandLine.appendSwitch('force-color-profile', 'srgb')
 app.commandLine.appendSwitch('high-dpi-support', '1')
 app.commandLine.appendSwitch('enable-font-antialiasing')
 app.commandLine.appendSwitch('enable-lcd-text')
-// Let Windows handle DPI — do NOT force scale factor (causes blur)
-// Do NOT add use-angle or disable-gpu flags — they cause blur on most Windows GPUs
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
 
-// In dev: app is never packaged, so isPackaged is always false locally
 const isDev = !app.isPackaged
 
-// ─── Desktop UA — used at session level AND per-webview ───────────────────────
-// A real Windows desktop Chrome UA. This is what tells every website to render
-// its full laptop layout — no mobile, no tablet, no "lite" version.
+// ─── Desktop UA ───────────────────────────────────────────────────────────────
+// A real Windows desktop Chrome UA. This tells every website to render its full
+// laptop layout — no mobile, no tablet, no "lite" version.
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
   'AppleWebKit/537.36 (KHTML, like Gecko) ' +
   'Chrome/124.0.0.0 Safari/537.36'
 
 // ─── Persistence path ─────────────────────────────────────────────────────────
-const WORKSPACE_DIR = path.join(os.homedir(), 'Documents', 'Canvascape')
+const WORKSPACE_DIR  = path.join(os.homedir(), 'Documents', 'Canvascape')
 const WORKSPACE_FILE = path.join(WORKSPACE_DIR, 'workspace.json')
 
 function ensureWorkspaceDir() {
@@ -42,23 +39,19 @@ function ensureWorkspaceDir() {
 let mainWindow
 
 function createWindow() {
-  // ── Set UA on the partition SESSION before any webview is created ───────────
-  // This is the earliest possible moment — every HTTP request from every webview
-  // using 'persist:canvascape' will carry the desktop UA from byte one, including
-  // the very first navigation that fires before did-attach-webview.
+  // Set UA on the partition SESSION before any webview is created.
+  // Every HTTP request from every webview using 'persist:canvascape' carries
+  // the desktop UA from byte one — before did-attach-webview even fires.
   const webviewSession = session.fromPartition('persist:canvascape')
   webviewSession.setUserAgent(DESKTOP_UA)
 
-  // Disable Accept-CH client hints so servers can't fingerprint the viewport
-  // size and serve a narrower layout. This keeps every site in full desktop mode.
+  // Strip client-hint headers that reveal a touch/small viewport to servers.
   webviewSession.webRequest.onBeforeSendHeaders((details, callback) => {
     const headers = { ...details.requestHeaders }
-    // Strip client hints that reveal a small/touch viewport
     delete headers['Sec-CH-UA-Mobile']
     delete headers['Sec-CH-UA-Platform-Version']
     delete headers['Viewport-Width']
     delete headers['Width']
-    // Force desktop UA on every outbound request (belt-and-suspenders)
     headers['User-Agent'] = DESKTOP_UA
     callback({ requestHeaders: headers })
   })
@@ -82,12 +75,10 @@ function createWindow() {
       nodeIntegration: false,
       webviewTag: true,
       sandbox: false,
-      // Sharp text rendering
       zoomFactor: 1.0,
     },
   })
 
-  // Force crisp pixel rendering — remove any inherited zoom
   mainWindow.webContents.setZoomFactor(1.0)
   mainWindow.webContents.setZoomLevel(0)
 
@@ -98,39 +89,116 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
-  // ── Webview hardening + UA enforcement ────────────────────────────────────
+  // ── will-attach-webview: set UA before the process is created ─────────────
   mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
-    // Set UA on webPreferences here — this fires BEFORE the webview process
-    // is created, so the first request goes out with the desktop UA already set.
     webPreferences.userAgent = DESKTOP_UA
-    // Ensure the webview inherits the correct partition for our session
     params.partition = 'persist:canvascape'
   })
 
+  // ── did-attach-webview: belt-and-suspenders UA + all interaction wiring ────
   mainWindow.webContents.on('did-attach-webview', (event, webContents) => {
-    // Belt-and-suspenders: override again after attach in case the attribute
-    // or will-attach handler was not honoured by Electron's version in use.
+
+    // Override UA one final time after attach — covers edge cases where
+    // will-attach-webview wasn't honoured by the running Electron version.
     webContents.setUserAgent(DESKTOP_UA)
 
-    // Inject a one-time script after every page load to guarantee the page
-    // sees a desktop viewport. This overrides any <meta name="viewport"> that
-    // tries to set a narrow width.
-    webContents.on('did-finish-load', () => {
-      webContents.executeJavaScript(`
-        (function() {
-          // Remove any viewport meta that declares width < 1024
-          var metas = document.querySelectorAll('meta[name="viewport"]');
-          metas.forEach(function(m) {
-            var c = m.getAttribute('content') || '';
-            if (/width=device-width/i.test(c) || /width=\\d{1,3}(?!\\d)/i.test(c)) {
-              m.setAttribute('content',
-                'width=1280, initial-scale=1.0, maximum-scale=1.0');
-            }
-          });
-        })();
-      `).catch(() => {})
+    // ── Right-click context menu ──────────────────────────────────────────────
+    // Electron webviews do NOT show any context menu by default. The 'context-menu'
+    // event fires with rich information about what was clicked (link, image, text
+    // selection, editable field, etc.). We build a native Menu from that data.
+    webContents.on('context-menu', (e, params) => {
+      const menu = new Menu()
+
+      // ── Editable field (input, textarea) ─────────────────────────────────
+      if (params.isEditable) {
+        if (params.selectionText) {
+          menu.append(new MenuItem({ label: 'Cut',   role: 'cut'   }))
+          menu.append(new MenuItem({ label: 'Copy',  role: 'copy'  }))
+        }
+        menu.append(new MenuItem({ label: 'Paste', role: 'paste' }))
+        menu.append(new MenuItem({ label: 'Select All', role: 'selectAll' }))
+        menu.append(new MenuItem({ type: 'separator' }))
+      }
+
+      // ── Text selection ────────────────────────────────────────────────────
+      if (params.selectionText && !params.isEditable) {
+        menu.append(new MenuItem({ label: 'Copy', role: 'copy' }))
+        menu.append(new MenuItem({
+          label: 'Search Google for "' + params.selectionText.slice(0, 30) + (params.selectionText.length > 30 ? '…' : '') + '"',
+          click: () => shell.openExternal(
+            `https://www.google.com/search?q=${encodeURIComponent(params.selectionText)}`
+          ),
+        }))
+        menu.append(new MenuItem({ type: 'separator' }))
+      }
+
+      // ── Hyperlink ─────────────────────────────────────────────────────────
+      if (params.linkURL) {
+        menu.append(new MenuItem({
+          label: 'Open Link in New Tab',
+          click: () => {
+            // Fire the custom event so Canvascape opens a new webNode card
+            mainWindow.webContents.executeJavaScript(
+              `window.dispatchEvent(new CustomEvent('canvas:openurl', { detail: { url: ${JSON.stringify(params.linkURL)} } }))`
+            ).catch(() => {})
+          },
+        }))
+        menu.append(new MenuItem({
+          label: 'Open Link in Browser',
+          click: () => shell.openExternal(params.linkURL).catch(() => {}),
+        }))
+        menu.append(new MenuItem({
+          label: 'Copy Link URL',
+          click: () => { require('electron').clipboard.writeText(params.linkURL) },
+        }))
+        menu.append(new MenuItem({ type: 'separator' }))
+      }
+
+      // ── Image ─────────────────────────────────────────────────────────────
+      if (params.mediaType === 'image' && params.srcURL) {
+        menu.append(new MenuItem({
+          label: 'Open Image in Browser',
+          click: () => shell.openExternal(params.srcURL).catch(() => {}),
+        }))
+        menu.append(new MenuItem({
+          label: 'Copy Image URL',
+          click: () => { require('electron').clipboard.writeText(params.srcURL) },
+        }))
+        menu.append(new MenuItem({ type: 'separator' }))
+      }
+
+      // ── Navigation ────────────────────────────────────────────────────────
+      menu.append(new MenuItem({
+        label: 'Back',
+        enabled: webContents.navigationHistory?.canGoBack?.() ?? false,
+        click:   () => webContents.goBack(),
+      }))
+      menu.append(new MenuItem({
+        label: 'Forward',
+        enabled: webContents.navigationHistory?.canGoForward?.() ?? false,
+        click:   () => webContents.goForward(),
+      }))
+      menu.append(new MenuItem({
+        label: 'Reload',
+        click: () => webContents.reload(),
+      }))
+
+      menu.append(new MenuItem({ type: 'separator' }))
+
+      // ── Clipboard / misc ──────────────────────────────────────────────────
+      menu.append(new MenuItem({
+        label: 'Copy Page URL',
+        click: () => { require('electron').clipboard.writeText(webContents.getURL()) },
+      }))
+      menu.append(new MenuItem({
+        label: 'Open Page in Browser',
+        click: () => shell.openExternal(webContents.getURL()).catch(() => {}),
+      }))
+
+      menu.popup({ window: mainWindow })
     })
 
+    // ── window.open → open in system browser ──────────────────────────────────
     webContents.setWindowOpenHandler(({ url }) => {
       if (url?.startsWith('http://') || url?.startsWith('https://')) {
         shell.openExternal(url).catch(() => {})
@@ -138,8 +206,8 @@ function createWindow() {
       return { action: 'deny' }
     })
 
+    // ── Navigation guard ──────────────────────────────────────────────────────
     webContents.on('will-navigate', (e, url) => {
-      // Keep navigation limited to web content plus about:blank transitional pages.
       if (
         !url.startsWith('http://') &&
         !url.startsWith('https://') &&
@@ -149,9 +217,9 @@ function createWindow() {
       }
     })
 
+    // ── Load failure logging ──────────────────────────────────────────────────
     webContents.on('did-fail-load', (_e, errorCode, _errorDescription, validatedURL, isMainFrame) => {
-      // Chromium ERR_ABORTED (-3) is expected during redirects and popup cancellations.
-      if (errorCode === -3) return
+      if (errorCode === -3) return   // ERR_ABORTED — expected on redirects
       if (!isMainFrame) return
       console.warn(`Webview load failed (${errorCode}) for ${validatedURL}`)
     })
@@ -163,7 +231,6 @@ app.whenReady().then(() => {
   ensureWorkspaceDir()
   createWindow()
 
-  // When a second instance tries to launch, focus the existing window instead
   app.on('second-instance', () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
@@ -171,7 +238,6 @@ app.whenReady().then(() => {
     }
   })
 
-  // macOS: re-show window when clicking dock icon
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
