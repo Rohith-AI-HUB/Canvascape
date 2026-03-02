@@ -1,30 +1,60 @@
-import { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useState, useEffect, useRef } from 'react'
+import { AnimatePresence, motion, LayoutGroup } from 'framer-motion'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 
 export default function CanvasSidebar() {
-  const { nodes, categories, activeCategoryId, addWebNode, addCategory, renameCategory, updateCategory, removeCategory,
-    toggleSidebar, setComposerOpen, sessionHistory, restoreFromHistory } = useWorkspaceStore()
+  const { nodes, workspaces, activeWorkspaceId, setActiveWorkspaceId, addWebNode, addWorkspace, renameWorkspace, updateWorkspace, removeWorkspace,
+    toggleSidebar, setComposerOpen, restoreFromHistory, getActiveWorkspace } = useWorkspaceStore()
   const [expanded, setExpanded] = useState(() => new Set(['__none__']))
   const [addingCat, setAddingCat] = useState(false)
   const [newLabel,  setNewLabel]  = useState('')
   const [editId,    setEditId]    = useState(null)
   const [editLabel, setEditLabel] = useState('')
   const [showPicker, setShowPicker] = useState(false)
+  const scrollRef = useRef(null)
 
-  const activeCategory = categories.find(c => c.id === activeCategoryId)
+  const activeWorkspace = getActiveWorkspace()
+  const sessionHistory = activeWorkspace?.sessionHistory || []
   const webNodes      = nodes.filter(n => n.type === 'webNode')
-  const filteredNodes = webNodes.filter(n => n.data?.categoryId === activeCategoryId || (!activeCategoryId && !n.data?.categoryId))
+  const filteredNodes = webNodes.filter(n => n.data?.workspaceId === activeWorkspaceId || (!activeWorkspaceId && !n.data?.workspaceId))
   
   const flyTo  = id => window.dispatchEvent(new CustomEvent('canvas:flyto', { detail: { nodeId: id } }))
   const toggle = id => setExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
-  const commitAdd  = () => { if (newLabel.trim()) addCategory(newLabel.trim()); setAddingCat(false); setNewLabel('') }
+  const commitAdd  = () => { if (newLabel.trim()) addWorkspace(newLabel.trim()); setAddingCat(false); setNewLabel('') }
   const commitEdit = () => {
     if (editLabel.trim() && editId) {
-      updateCategory(editId, { label: editLabel.trim() })
+      updateWorkspace(editId, { label: editLabel.trim() })
     }
     setEditId(null)
   }
+
+  const allWorkspaces = [{ id: null, label: 'Unsorted', color: 'var(--t4)' }, ...workspaces]
+  
+  const switchWorkspace = (dir) => {
+    const idx = allWorkspaces.findIndex(c => c.id === activeWorkspaceId)
+    let next = idx + dir
+    if (next < 0) next = allWorkspaces.length - 1
+    if (next >= allWorkspaces.length) next = 0
+    setActiveWorkspaceId(allWorkspaces[next].id)
+  }
+
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      // Mouse button 3 is backward, 4 is forward
+      if (e.button === 3) { e.preventDefault(); switchWorkspace(-1) }
+      if (e.button === 4) { e.preventDefault(); switchWorkspace(1) }
+    }
+    window.addEventListener('mousedown', onMouseDown)
+    return () => window.removeEventListener('mousedown', onMouseDown)
+  }, [activeWorkspaceId, workspaces])
+
+  // Scroll active workspace into view
+  useEffect(() => {
+    const activeEl = scrollRef.current?.querySelector('[data-active="true"]')
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    }
+  }, [activeWorkspaceId])
 
   const PALETTE = [
     { color: '#A78BFA', bg: 'rgba(167,139,250,0.08)' },
@@ -70,17 +100,17 @@ export default function CanvasSidebar() {
 
       {/* ── Active Workspace label ── */}
       <div style={{ padding: '12px 16px 4px', display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
-        {editId === activeCategory?.id ? (
+        {editId === activeWorkspace?.id ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
             <div 
               onClick={() => setShowPicker(!showPicker)}
               onMouseDown={e => e.preventDefault()}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, cursor: 'pointer', borderRadius: 6, background: 'var(--s2)', border: '1px solid var(--bd)' }}
             >
-              {activeCategory?.emoji ? (
-                <span style={{ fontSize: 14 }}>{activeCategory.emoji}</span>
+              {activeWorkspace?.emoji ? (
+                <span style={{ fontSize: 14 }}>{activeWorkspace.emoji}</span>
               ) : (
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: activeCategory?.color || 'var(--t4)' }} />
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: activeWorkspace?.color || 'var(--t4)' }} />
               )}
             </div>
             <input
@@ -111,8 +141,8 @@ export default function CanvasSidebar() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
                   {PALETTE.map(p => (
                     <div key={p.color} 
-                      onClick={() => updateCategory(activeCategory.id, { color: p.color, bg: p.bg, emoji: null })}
-                      style={{ width: 24, height: 24, borderRadius: '50%', background: p.color, cursor: 'pointer', border: (!activeCategory.emoji && activeCategory.color === p.color) ? '2px solid var(--t1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                      onClick={() => updateWorkspace(activeWorkspace.id, { color: p.color, bg: p.bg, emoji: null })}
+                      style={{ width: 24, height: 24, borderRadius: '50%', background: p.color, cursor: 'pointer', border: (!activeWorkspace.emoji && activeWorkspace.color === p.color) ? '2px solid var(--t1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
                     />
                   ))}
                 </div>
@@ -120,8 +150,8 @@ export default function CanvasSidebar() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
                   {EMOJIS.map(em => (
                     <div key={em} 
-                      onClick={() => updateCategory(activeCategory.id, { emoji: em })}
-                      style={{ fontSize: 16, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 6, background: activeCategory.emoji === em ? 'var(--s3)' : 'transparent', border: activeCategory.emoji === em ? '1px solid var(--bd)' : '1px solid transparent' }}
+                      onClick={() => updateWorkspace(activeWorkspace.id, { emoji: em })}
+                      style={{ fontSize: 16, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 6, background: activeWorkspace.emoji === em ? 'var(--s3)' : 'transparent', border: activeWorkspace.emoji === em ? '1px solid var(--bd)' : '1px solid transparent' }}
                     >
                       {em}
                     </div>
@@ -133,18 +163,18 @@ export default function CanvasSidebar() {
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-              {activeCategory?.emoji ? (
-                <span style={{ fontSize: 12 }}>{activeCategory.emoji}</span>
+              {activeWorkspace?.emoji ? (
+                <span style={{ fontSize: 12 }}>{activeWorkspace.emoji}</span>
               ) : (
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: activeCategory?.color || 'var(--t4)' }} />
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: activeWorkspace?.color || 'var(--t4)' }} />
               )}
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--t2)' }}>
-                {activeCategory?.label || 'Unsorted'}
+                {activeWorkspace?.label || 'Unsorted'}
               </span>
             </div>
-            {activeCategory && (
+            {activeWorkspace && (
               <button 
-                onClick={() => { setEditId(activeCategory.id); setEditLabel(activeCategory.label) }}
+                onClick={() => { setEditId(activeWorkspace.id); setEditLabel(activeWorkspace.label) }}
                 style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--t4)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--t2)'}
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--t4)'}
@@ -161,7 +191,7 @@ export default function CanvasSidebar() {
       {/* ── Tree (Only nodes of active workspace) ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px 12px', scrollbarWidth: 'thin' }}>
         {filteredNodes.length > 0 ? (
-          filteredNodes.map(n => <TabRow key={n.id} node={n} onFly={flyTo} accent={activeCategory?.color}/>)
+          filteredNodes.map(n => <TabRow key={n.id} node={n} onFly={flyTo} accent={activeWorkspace?.color}/>)
         ) : (
           <div style={{ padding: '32px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <div style={{ color: 'var(--t4)', fontSize: 12.5 }}>No tabs in this workspace</div>
@@ -177,6 +207,105 @@ export default function CanvasSidebar() {
             >
               + New Tab
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Workspaces Switcher (Moved to bottom) ── */}
+      <div style={{ borderTop: '1px solid var(--bd)', padding: '12px 0 8px', background: 'var(--s1)' }}>
+        <div style={{ padding: '0 8px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+          {/* Previous Arrow */}
+          <button 
+            onClick={() => switchWorkspace(-1)}
+            style={{ width: 24, height: 24, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--t4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--t2)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--t4)'}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          <div ref={scrollRef} style={{ flex: 1, overflowX: 'auto', scrollbarWidth: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <LayoutGroup id="sidebar-workspaces">
+              {allWorkspaces.map(ws => {
+                const isActive = activeWorkspaceId === ws.id
+                return (
+                <button
+                  key={ws.id ?? 'unsorted'}
+                  onClick={() => setActiveWorkspaceId(ws.id)}
+                  data-active={isActive}
+                  style={{
+                    position: 'relative', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
+                    borderRadius: 10, border: '1px solid transparent',
+                    background: 'transparent',
+                    color: isActive ? (ws.color || 'var(--a)') : 'var(--t3)',
+                    fontSize: 11.5, fontWeight: 700, cursor: 'pointer', transition: 'all 120ms',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--s2)' }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-workspace-bg"
+                      style={{
+                        position: 'absolute', inset: 0, borderRadius: 10,
+                        background: ws.bg || 'var(--a-bg)',
+                        border: `1px solid ${ws.color || 'var(--bd-a)'}`,
+                        zIndex: -1
+                      }}
+                      transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                    />
+                  )}
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: ws.color }} />
+                  {ws.emoji && <span style={{ fontSize: 12 }}>{ws.emoji}</span>}
+                  {ws.label}
+                </button>
+              )
+              })}
+            </LayoutGroup>
+          </div>
+
+          {/* Next Arrow */}
+          <button 
+            onClick={() => switchWorkspace(1)}
+            style={{ width: 24, height: 24, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--t4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--t2)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--t4)'}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          <div style={{ width: 1, height: 16, background: 'var(--bd)', margin: '0 4px' }} />
+
+          <button
+            onClick={() => setAddingCat(true)}
+            style={{
+              width: 26, height: 26, borderRadius: 13, border: 'none', background: 'var(--a-bg)',
+              color: 'var(--a)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        {addingCat && (
+          <div style={{ padding: '0 12px 8px' }}>
+            <input
+              autoFocus value={newLabel} onChange={e => setNewLabel(e.target.value)}
+              onBlur={commitAdd} onKeyDown={e => e.key === 'Enter' && commitAdd()}
+              placeholder="New workspace..."
+              style={{
+                width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--bd-a)',
+                background: 'var(--a-bg)', color: 'var(--t1)', fontSize: 12, outline: 'none'
+              }}
+            />
           </div>
         )}
       </div>

@@ -14,10 +14,18 @@ import { normalizeUrl, titleFromUrl, faviconUrl } from '../../utils/urlUtils'
 const NODE_TYPES = { webNode: WebNode, ideNode: IDENode, groupFrame: GroupFrame, aiNode: AICanvasNode, settingsNode: SettingsNode }
 
 function CanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, viewport, setViewport,
-    setActiveNode, activeNodeId, filter, activeCategoryId, addWebNode } = useWorkspaceStore()
+  const { nodes, edges, onNodesChange, onEdgesChange, getActiveWorkspace, setViewport,
+    setActiveNode, activeWorkspaceId, filter, addWebNode } = useWorkspaceStore()
   const { contextMenu, openMenu, closeMenu } = useContextMenu()
   const rf = useReactFlow()
+  const activeWorkspace = getActiveWorkspace()
+
+  // Sync viewport when workspace changes
+  useEffect(() => {
+    if (rf && activeWorkspace?.viewport) {
+      rf.setViewport(activeWorkspace.viewport, { duration: 400 })
+    }
+  }, [activeWorkspaceId, rf])
 
   useEffect(() => {
     const h = () => rf.fitView({ padding: 0.15, duration: 500 })
@@ -38,11 +46,11 @@ function CanvasInner() {
       if (!url) return
       addWebNode({ url: normalizeUrl(url), title: titleFromUrl(url), favicon: faviconUrl(url),
         position: { x: 200 + Math.random() * 280, y: 100 + Math.random() * 180 },
-        categoryId: activeCategoryId })
+        workspaceId: activeWorkspaceId })
     }
     window.addEventListener('canvas:openurl', h)
     return () => window.removeEventListener('canvas:openurl', h)
-  }, [addWebNode, activeCategoryId])
+  }, [addWebNode, activeWorkspaceId])
 
   const onMoveEnd   = useCallback((_, vp) => setViewport(vp), [setViewport])
   const onPaneClick = useCallback(() => { setActiveNode(null); closeMenu() }, [setActiveNode, closeMenu])
@@ -52,10 +60,7 @@ function CanvasInner() {
 
   const displayNodes = nodes
     .filter(n => {
-      if (n.type === 'webNode') {
-        return n.data?.categoryId === activeCategoryId || (!activeCategoryId && !n.data?.categoryId)
-      }
-      return true
+      return n.data?.workspaceId === activeWorkspaceId || (!activeWorkspaceId && !n.data?.workspaceId)
     })
     .map(n => {
       if (n.type !== 'webNode') return n
@@ -65,14 +70,12 @@ function CanvasInner() {
                 : { ...n, style: { ...n.style, opacity: 1, pointerEvents: 'auto' } }
     })
 
-  const webCount = nodes.filter(n => n.type === 'webNode').length
-
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'var(--canvas)' }}>
       <ReactFlow
         nodes={displayNodes} edges={edges}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-        nodeTypes={NODE_TYPES} defaultViewport={viewport}
+        nodeTypes={NODE_TYPES} defaultViewport={activeWorkspace?.viewport || { x: 0, y: 0, zoom: 1 }}
         onMoveEnd={onMoveEnd} onPaneClick={onPaneClick}
         onPaneContextMenu={onPaneCtx} onNodeContextMenu={onNodeCtx} onNodeClick={onNodeClick}
         minZoom={0.06} maxZoom={2}

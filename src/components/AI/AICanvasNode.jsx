@@ -122,7 +122,10 @@ function initConvs(data) {
 // Main node
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AICanvasNode({ id, data, selected }) {
-  const { updateNodeData, removeNode, nodes, aiProvider, setAIProvider, aiContextEnabled, setAIContextEnabled, setActiveNode, theme } = useWorkspaceStore()
+  const { updateNodeData, removeNode, nodes, aiProvider, setAIProvider, aiContextEnabled, setAIContextEnabled, setActiveNode, theme, activeWorkspaceId, getActiveWorkspace } = useWorkspaceStore()
+
+  const activeWorkspace = getActiveWorkspace()
+  const workspaceId = data.workspaceId || activeWorkspaceId
 
   const init = useMemo(() => initConvs(data), []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -230,13 +233,14 @@ export default function AICanvasNode({ id, data, selected }) {
 
   // ── Workspace context ────────────────────────────────────────────────────────
   const buildContext = useCallback(() => {
-    const tabs = nodes.filter(n => n.type === 'webNode')
-    const ides = nodes.filter(n => n.type === 'ideNode').length
+    const wsNodes = nodes.filter(n => n.data?.workspaceId === workspaceId || (!workspaceId && !n.data?.workspaceId))
+    const tabs = wsNodes.filter(n => n.type === 'webNode')
+    const ides = wsNodes.filter(n => n.type === 'ideNode').length
     const list = tabs.length
       ? tabs.map((n, i) => `${i + 1}. "${n.data.title || 'Untitled'}" — ${n.data.url}${n.data.note ? ` [note: ${n.data.note}]` : ''}`).join('\n')
-      : 'No web tabs open.'
-    return `You are an AI assistant embedded as a card in Canvascape, a spatial canvas browser.\n\nOpen tabs (${tabs.length}):\n${list}\nLive IDE cards: ${ides}\n\nBe concise. When creating a webpage, output complete HTML inside one \`\`\`html block.`
-  }, [nodes])
+      : 'No web tabs open in this workspace.'
+    return `You are an AI assistant embedded as a card in Canvascape, a spatial canvas browser.\n\nThis chat is scoped to the "${activeWorkspace?.label || 'Default'}" workspace.\n\nOpen tabs in this workspace (${tabs.length}):\n${list}\nLive IDE cards: ${ides}\n\nBe concise. When creating a webpage, output complete HTML inside one \`\`\`html block.`
+  }, [nodes, workspaceId, activeWorkspace])
 
   // ── Slash commands ────────────────────────────────────────────────────────────
   const execCommand = useCallback((cmd) => {

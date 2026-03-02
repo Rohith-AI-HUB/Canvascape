@@ -17,23 +17,23 @@ const QUICK = [
 ]
 
 export default function ComposerModal() {
-  const { isComposerOpen, setComposerOpen, addWebNode, categories, activeCategoryId, theme } = useWorkspaceStore()
+  const { isComposerOpen, setComposerOpen, addWebNode, workspaces, activeWorkspaceId, theme } = useWorkspaceStore()
   const [input, setInput]   = useState('')
-  const [selCat, setSelCat] = useState(activeCategoryId)
+  const [selCat, setSelCat] = useState(activeWorkspaceId)
   const inputRef = useRef(null)
   const isDark = theme === 'dark'
 
   useEffect(() => {
     if (!isComposerOpen) return
-    setInput(''); setSelCat(activeCategoryId)
+    setInput(''); setSelCat(activeWorkspaceId)
     setTimeout(() => inputRef.current?.focus(), 60)
-  }, [isComposerOpen, activeCategoryId])
+  }, [isComposerOpen, activeWorkspaceId])
 
   const close = useCallback(() => setComposerOpen(false), [setComposerOpen])
 
   const open = useCallback((rawUrl) => {
     const url = normalizeUrl(rawUrl || input)
-    addWebNode({ url, title: titleFromUrl(url), favicon: faviconUrl(url), categoryId: selCat,
+    addWebNode({ url, title: titleFromUrl(url), favicon: faviconUrl(url), workspaceId: selCat,
       position: { x: 160 + Math.random() * 300, y: 80 + Math.random() * 180 } })
     setComposerOpen(false); setInput(''); setSelCat(null)
   }, [input, selCat, addWebNode, setComposerOpen])
@@ -47,15 +47,15 @@ export default function ComposerModal() {
             onClick={close}/>
 
           <motion.div key="cp"
-            initial={{ opacity: 0, y: 16, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.97 }}
+            initial={{ opacity: 0, y: 16, scale: 0.97, x: '-50%' }}
+            animate={{ opacity: 1, y: '-50%', scale: 1, x: '-50%' }}
+            exit={{ opacity: 0, y: 10, scale: 0.97, x: '-50%' }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             onClick={e => e.stopPropagation()}
             style={{
               position: 'fixed', zIndex: 301,
-              bottom: 62, left: '50%', transform: 'translateX(-50%)',
-              width: 'min(600px, calc(100vw - 24px)',
+              top: '50%', left: '50%',
+              width: 'min(600px, calc(100vw - 24px))',
               background: isDark ? '#141310' : '#FFFFFF',
               border: `1px solid ${isDark ? 'rgba(255,245,220,0.12)' : 'rgba(100,80,40,0.15)'}`,
               borderRadius: 20,
@@ -86,11 +86,11 @@ export default function ComposerModal() {
             </div>
 
             {/* Categories */}
-            {categories.length > 0 && (
+            {workspaces.length > 0 && (
               <div style={{ padding: '12px 20px 0', borderBottom: `1px solid ${isDark ? 'rgba(255,245,220,0.07)' : 'rgba(100,80,40,0.08)'}` }}>
                 <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 10 }}>Add to workspace</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 12 }}>
-                  {[{ id: null, label: 'None', color: 'var(--t3)', bg: 'var(--s2)' }, ...categories].map(c => (
+                  {[{ id: null, label: 'None', color: 'var(--t3)', bg: 'var(--s2)' }, ...workspaces].map(c => (
                     <button key={c.id ?? 'none'} onClick={() => setSelCat(c.id)}
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px',

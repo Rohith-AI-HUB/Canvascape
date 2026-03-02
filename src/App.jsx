@@ -5,7 +5,6 @@ import { useWorkspaceStore } from './store/workspaceStore'
 import CanvasWorkspace from './components/Canvas/CanvasWorkspace'
 import CanvasSidebar   from './components/Sidebar/CanvasSidebar'
 import TopBar          from './components/UI/TopBar'
-import WorkspaceCarousel from './components/UI/WorkspaceCarousel'
 import ComposerModal   from './components/UI/ComposerModal'
 import LoadingScreen   from './components/UI/LoadingScreen'
 import CommandPalette  from './components/UI/CommandPalette'
@@ -74,7 +73,6 @@ export default function App() {
             </AnimatePresence>
               <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                 <CanvasWorkspace />
-                <WorkspaceCarousel />
               </div>
             </div>
           </div>

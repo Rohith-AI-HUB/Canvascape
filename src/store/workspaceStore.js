@@ -5,10 +5,10 @@ import { debounce } from '../utils/debounce'
 let _zCounter = 100
 const nextZ = () => ++_zCounter
 
-const DEFAULT_CATEGORIES = [
-  { id: 'cat_work',     label: 'Work',     color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', emoji: '💼' },
-  { id: 'cat_research', label: 'Research', color: '#60A5FA', bg: 'rgba(96,165,250,0.08)', emoji: '🔬' },
-  { id: 'cat_personal', label: 'Personal', color: '#34D399', bg: 'rgba(52,211,153,0.08)', emoji: '🏠' },
+const DEFAULT_WORKSPACES = [
+  { id: 'ws_work',     label: 'Work',     color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', emoji: '💼', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } },
+  { id: 'ws_research', label: 'Research', color: '#60A5FA', bg: 'rgba(96,165,250,0.08)', emoji: '🔬', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } },
+  { id: 'ws_personal', label: 'Personal', color: '#34D399', bg: 'rgba(52,211,153,0.08)', emoji: '🏠', sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } },
 ]
 
 const PALETTE = [
@@ -23,16 +23,19 @@ const PALETTE = [
 const _save = debounce(async (state) => {
   try {
     await window.canvascape?.workspace.save({
-      nodes: state.nodes,
-      edges: state.edges,
-      viewport: state.viewport,
-      categories: state.categories,
-      activeCategoryId: state.activeCategoryId,
-      theme: state.theme,
-      sessionHistory:   state.sessionHistory,
+      nodes:            state.nodes,
+      edges:            state.edges,
+      workspaces:       state.workspaces,
+      activeWorkspaceId: state.activeWorkspaceId,
+      theme:            state.theme,
       aiProvider:       state.aiProvider,
       aiConversations:  state.aiConversations,
-      version: 3,
+      aiCurrentId:      state.aiCurrentId,
+      isSidebarOpen:    state.isSidebarOpen,
+      isAIPanelOpen:    state.isAIPanelOpen,
+      filter:           state.filter,
+      aiContextEnabled: state.aiContextEnabled,
+      version: 5,
       savedAt: Date.now(),
     })
   } catch (e) { console.warn('Save failed', e) }
@@ -42,12 +45,11 @@ export const useWorkspaceStore = create((set, get) => ({
   // ── State ──────────────────────────────────────────────────────────────────
   nodes:        [],
   edges:        [],
-  viewport:     { x: 0, y: 0, zoom: 1 },
   activeNodeId: null,
   isLoading:    true,
 
-  categories:      DEFAULT_CATEGORIES,
-  activeCategoryId: 'cat_work', // Default to first category
+  workspaces:       DEFAULT_WORKSPACES,
+  activeWorkspaceId: 'ws_work', 
   filter:          'all',
   isSidebarOpen:   true,
   isComposerOpen:  false,
@@ -55,7 +57,21 @@ export const useWorkspaceStore = create((set, get) => ({
   isAIPanelOpen:   false,
   theme:           'dark',
 
-  setActiveCategoryId: (id) => set({ activeCategoryId: id }),
+  setActiveWorkspaceId: (id) => {
+    set((s) => {
+      // Save current viewport into the workspace before switching
+      // Actually, we should probably update it on move end too, 
+      // but let's ensure it's saved here if not already.
+      return { activeWorkspaceId: id }
+    })
+    _save(get())
+  },
+
+  // Helper to get active workspace object
+  getActiveWorkspace: () => {
+    const s = get()
+    return s.workspaces.find(w => w.id === s.activeWorkspaceId) || s.workspaces[0]
+  },
 
   // ── AI state ────────────────────────────────────────────────────────────────
   aiConversations: [],  // [{ id, title, messages:[{id,role,content,ts}], createdAt, updatedAt }]
@@ -70,17 +86,21 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   setAIProvider:   (patch) => { set((s) => ({ aiProvider: { ...s.aiProvider, ...patch } })); _save(get()) },
-  setAIContextEnabled: (val) => set({ aiContextEnabled: val }),
+  setAIContextEnabled: (val) => { set({ aiContextEnabled: val }); _save(get()) },
 
   aiNewChat: () => {
     const id = `conv_${Date.now()}`
     set((s) => ({ aiConversations: [{ id, title: 'New chat', messages: [], createdAt: Date.now(), updatedAt: Date.now() }, ...s.aiConversations], aiCurrentId: id }))
+    _save(get())
   },
-  aiSelectConv: (id) => set({ aiCurrentId: id }),
-  aiDeleteConv: (id) => set((s) => ({
-    aiConversations: s.aiConversations.filter(c => c.id !== id),
-    aiCurrentId: s.aiCurrentId === id ? (s.aiConversations.find(c => c.id !== id)?.id ?? null) : s.aiCurrentId,
-  })),
+  aiSelectConv: (id) => { set({ aiCurrentId: id }); _save(get()) },
+  aiDeleteConv: (id) => {
+    set((s) => ({
+      aiConversations: s.aiConversations.filter(c => c.id !== id),
+      aiCurrentId: s.aiCurrentId === id ? (s.aiConversations.find(c => c.id !== id)?.id ?? null) : s.aiCurrentId,
+    }))
+    _save(get())
+  },
   aiCurrentMessages: () => {
     const s = get()
     return s.aiConversations.find(c => c.id === s.aiCurrentId)?.messages ?? []
@@ -116,9 +136,6 @@ export const useWorkspaceStore = create((set, get) => ({
     _save(get())
   },
 
-  // Session history — tracks closed web nodes for restore
-  sessionHistory: [], // [{ id, url, title, favicon, note, closedAt }]
-
   // ── ReactFlow wiring ────────────────────────────────────────────────────────
   onNodesChange: (changes) => {
     set((s) => {
@@ -131,7 +148,14 @@ export const useWorkspaceStore = create((set, get) => ({
   onEdgesChange: (changes) => {
     set((s) => ({ edges: applyEdgeChanges(changes, s.edges) }))
   },
-  setViewport: (vp) => { set({ viewport: vp }); _save(get()) },
+  setViewport: (vp) => {
+    set((s) => ({
+      workspaces: s.workspaces.map(w => 
+        w.id === s.activeWorkspaceId ? { ...w, viewport: vp } : w
+      )
+    }))
+    _save(get())
+  },
 
   // ── Node focus / z-order ────────────────────────────────────────────────────
   setActiveNode: (id) => {
@@ -141,10 +165,11 @@ export const useWorkspaceStore = create((set, get) => ({
       activeNodeId: id,
       nodes: s.nodes.map((n) => n.id === id ? { ...n, zIndex: z } : n),
     }))
+    _save(get())
   },
 
   // ── Add web node ────────────────────────────────────────────────────────────
-  addWebNode: ({ url, title, favicon, position, categoryId, pinned } = {}) => {
+  addWebNode: ({ url, title, favicon, position, workspaceId, pinned } = {}) => {
     const s = get()
     const id = `web_${Date.now()}_${Math.random().toString(36).slice(2,6)}`
     const pos = position ?? { x: 200 + Math.random() * 280, y: 100 + Math.random() * 200 }
@@ -158,7 +183,7 @@ export const useWorkspaceStore = create((set, get) => ({
         title:        title   ?? 'New Tab',
         favicon:      favicon ?? null,
         isLoading:    true,
-        categoryId:   categoryId ?? s.activeCategoryId,
+        workspaceId:   workspaceId ?? s.activeWorkspaceId,
         pinned:       pinned  ?? false,
         minimized:    false,
         createdAt:    Date.now(),
@@ -178,7 +203,7 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   // ── Add IDE node (code + live preview) ──────────────────────────────────────
-  addIdeNode: ({ title, html, position, categoryId } = {}) => {
+  addIdeNode: ({ title, html, position, workspaceId } = {}) => {
     const s = get()
     const id = `ide_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
     const pos = position ?? { x: 160 + Math.random() * 280, y: 90 + Math.random() * 180 }
@@ -190,7 +215,7 @@ export const useWorkspaceStore = create((set, get) => ({
       data: {
         title: title ?? 'Live IDE Preview',
         code: html ?? '<!doctype html>\n<html>\n  <head><meta charset="utf-8" /><title>Live IDE</title></head>\n  <body><h1>Hello from Canvascape</h1></body>\n</html>',
-        categoryId: categoryId ?? s.activeCategoryId,
+        workspaceId: workspaceId ?? s.activeWorkspaceId,
         createdAt: Date.now(),
         aiGenerated: true,
       },
@@ -204,7 +229,8 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   // ── Add AI canvas node ───────────────────────────────────────────────────────
-  addAICanvasNode: ({ position } = {}) => {
+  addAICanvasNode: ({ position, workspaceId } = {}) => {
+    const s = get()
     const id  = `ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
     const pos = position ?? { x: 200 + Math.random() * 200, y: 80 + Math.random() * 160 }
     const z   = nextZ()
@@ -212,7 +238,7 @@ export const useWorkspaceStore = create((set, get) => ({
       id,
       type:     'aiNode',
       position: pos,
-      data:     { messages: [], createdAt: Date.now() },
+      data:     { messages: [], createdAt: Date.now(), workspaceId: workspaceId ?? s.activeWorkspaceId },
       style:    { width: 360, height: 520, zIndex: z },
       zIndex:   z,
       dragHandle: '.node-drag-handle',
@@ -250,15 +276,16 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   // ── Add group frame ─────────────────────────────────────────────────────────
-  addGroupNode: ({ position, categoryId } = {}) => {
-    const cats = get().categories
-    const cat  = cats.find((c) => c.id === categoryId) ?? cats[0]
+  addGroupNode: ({ position, workspaceId } = {}) => {
+    const s = get()
+    const workspaces = s.workspaces
+    const ws  = workspaces.find((w) => w.id === workspaceId) ?? s.getActiveWorkspace()
     const id   = `group_${Date.now()}`
     const node = {
       id,
       type:     'groupFrame',
       position: position ?? { x: 60, y: 60 },
-      data:     { label: cat?.label ?? 'Group', color: cat?.color ?? '#A78BFA', bg: cat?.bg ?? 'rgba(167,139,250,0.08)', categoryId: cat?.id ?? null },
+      data:     { label: ws?.label ?? 'Group', color: ws?.color ?? '#A78BFA', bg: ws?.bg ?? 'rgba(167,139,250,0.08)', workspaceId: ws?.id ?? null },
       style:    { width: 820, height: 560 },
       zIndex:   1,
       dragHandle: '.group-drag-handle',
@@ -292,7 +319,11 @@ export const useWorkspaceStore = create((set, get) => ({
         pinned:   node.data.pinned || false,
       }
       set((s) => ({
-        sessionHistory: [histEntry, ...s.sessionHistory].slice(0, 40),
+        workspaces: s.workspaces.map(w => 
+          w.id === (node.data.workspaceId || s.activeWorkspaceId)
+            ? { ...w, sessionHistory: [histEntry, ...w.sessionHistory].slice(0, 40) }
+            : w
+        ),
         nodes:          s.nodes.filter((n) => n.id !== id),
         activeNodeId:   s.activeNodeId === id ? null : s.activeNodeId,
       }))
@@ -308,14 +339,18 @@ export const useWorkspaceStore = create((set, get) => ({
   duplicateNode: (id) => {
     const src = get().nodes.find((n) => n.id === id)
     if (!src) return
+    const z = nextZ()
+    const prefix = src.type.replace('Node', '').replace('Frame', '').toLowerCase()
+    const newId = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
     const dup = {
       ...src,
-      id:       `web_${Date.now()}`,
+      id:       newId,
       position: { x: src.position.x + 40, y: src.position.y + 40 },
-      zIndex:   nextZ(),
+      zIndex:   z,
+      style:    { ...src.style, zIndex: z },
       data:     { ...src.data, createdAt: Date.now(), pinned: false, minimized: false, note: '', isNoteOpen: false },
     }
-    set((s) => ({ nodes: [...s.nodes, dup] }))
+    set((s) => ({ nodes: [...s.nodes, dup], activeNodeId: newId }))
     _save(get())
   },
 
@@ -352,8 +387,8 @@ export const useWorkspaceStore = create((set, get) => ({
     _save(get())
   },
 
-  assignCategory: (nodeId, categoryId) => {
-    set((s) => ({ nodes: s.nodes.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, categoryId } } : n) }))
+  assignWorkspace: (nodeId, workspaceId) => {
+    set((s) => ({ nodes: s.nodes.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, workspaceId } } : n) }))
     _save(get())
   },
 
@@ -362,6 +397,7 @@ export const useWorkspaceStore = create((set, get) => ({
     set((s) => ({
       nodes: s.nodes.map((n) => n.id === id ? { ...n, data: { ...n.data, isNoteOpen: !n.data.isNoteOpen } } : n)
     }))
+    _save(get())
   },
   updateNote: (id, note) => {
     set((s) => ({ nodes: s.nodes.map((n) => n.id === id ? { ...n, data: { ...n.data, note } } : n) }))
@@ -424,55 +460,68 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   // ── Session history ─────────────────────────────────────────────────────────
-  clearHistory: () => { set({ sessionHistory: [] }); _save(get()) },
+  clearHistory: () => {
+    set((s) => ({
+      workspaces: s.workspaces.map(w => 
+        w.id === s.activeWorkspaceId ? { ...w, sessionHistory: [] } : w
+      )
+    }))
+    _save(get())
+  },
   restoreFromHistory: (histEntry) => {
     get().addWebNode({ url: histEntry.url, title: histEntry.title, favicon: histEntry.favicon, pinned: histEntry.pinned })
     // Remove from history after restore
-    set((s) => ({ sessionHistory: s.sessionHistory.filter((h) => h.id !== histEntry.id) }))
+    set((s) => ({
+      workspaces: s.workspaces.map(w => 
+        w.id === s.activeWorkspaceId 
+          ? { ...w, sessionHistory: w.sessionHistory.filter((h) => h.id !== histEntry.id) }
+          : w
+      )
+    }))
     _save(get())
   },
 
-  // ── Categories ──────────────────────────────────────────────────────────────
-  addCategory: (label) => {
-    const idx = get().categories.length % PALETTE.length
-    const id  = `cat_${Date.now()}`
+  // ── Workspaces ──────────────────────────────────────────────────────────────
+  addWorkspace: (label) => {
+    const idx = get().workspaces.length % PALETTE.length
+    const id  = `ws_${Date.now()}`
     set((s) => ({
-      categories: [...s.categories, { id, label, ...PALETTE[idx] }],
-      activeCategoryId: id,
+      workspaces: [...s.workspaces, { id, label, ...PALETTE[idx], sessionHistory: [], viewport: { x: 0, y: 0, zoom: 1 } }],
+      activeWorkspaceId: id,
     }))
     _save(get())
     return id
   },
-  renameCategory: (id, label) => {
-    set((s) => ({ categories: s.categories.map((c) => c.id === id ? { ...c, label } : c) }))
+  renameWorkspace: (id, label) => {
+    set((s) => ({ workspaces: s.workspaces.map((w) => w.id === id ? { ...w, label } : w) }))
     _save(get())
   },
-  updateCategory: (id, patch) => {
+  updateWorkspace: (id, patch) => {
     set((s) => ({
-      categories: s.categories.map((c) => c.id === id ? { ...c, ...patch } : c),
-      nodes: s.nodes.map((n) => n.data?.categoryId === id ? { ...n, data: { ...n.data, color: patch.color ?? n.data.color, bg: patch.bg ?? n.data.bg } } : n)
+      workspaces: s.workspaces.map((w) => w.id === id ? { ...w, ...patch } : w),
+      nodes: s.nodes.map((n) => n.data?.workspaceId === id ? { ...n, data: { ...n.data, color: patch.color ?? n.data.color, bg: patch.bg ?? n.data.bg } } : n)
     }))
     _save(get())
   },
-  removeCategory: (id) => {
+  removeWorkspace: (id) => {
     set((s) => {
-      const nextCats = s.categories.filter((c) => c.id !== id)
+      const nextWs = s.workspaces.filter((w) => w.id !== id)
       return {
-        categories: nextCats,
-        activeCategoryId: s.activeCategoryId === id ? (nextCats[0]?.id ?? null) : s.activeCategoryId,
-        nodes: s.nodes.map((n) => n.data?.categoryId === id ? { ...n, data: { ...n.data, categoryId: null } } : n),
+        workspaces: nextWs,
+        activeWorkspaceId: s.activeWorkspaceId === id ? (nextWs[0]?.id ?? null) : s.activeWorkspaceId,
+        nodes: s.nodes.map((n) => n.data?.workspaceId === id ? { ...n, data: { ...n.data, workspaceId: null } } : n),
       }
     })
     _save(get())
   },
 
   // ── UI state ────────────────────────────────────────────────────────────────
-  setFilter:        (f)   => set({ filter: f }),
-  toggleSidebar:    ()    => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
+  setFilter:        (f)   => { set({ filter: f }); _save(get()) },
+  toggleSidebar:    ()    => { set((s) => ({ isSidebarOpen: !s.isSidebarOpen })); _save(get()) },
   setComposerOpen:  (val) => set({ isComposerOpen: val }),
   setCommandOpen:   (val) => set({ isCommandOpen: val }),
-  toggleAIPanel:    ()    => set((s) => ({ isAIPanelOpen: !s.isAIPanelOpen })),
-  setAIPanelOpen:   (val) => set({ isAIPanelOpen: val }),
+  toggleAIPanel:    ()    => { set((s) => ({ isAIPanelOpen: !s.isAIPanelOpen })); _save(get()) },
+  setAIPanelOpen:   (val) => { set({ isAIPanelOpen: val }); _save(get()) },
   toggleTheme:     ()    => {
     set((s) => {
       const next = s.theme === 'dark' ? 'light' : 'dark'
@@ -487,21 +536,35 @@ export const useWorkspaceStore = create((set, get) => ({
     if (!window.canvascape) { set({ isLoading: false }); return }
     try {
       const saved = await window.canvascape.workspace.load()
-      if (saved?.nodes?.length) {
-        _zCounter = saved.nodes.reduce((m, n) => Math.max(m, n.zIndex ?? 0), 100)
+      if (saved) {
+        if (saved.nodes?.length) {
+          _zCounter = saved.nodes.reduce((m, n) => Math.max(m, n.zIndex ?? 0), 100)
+        }
         const theme = saved.theme ?? 'dark'
         document.documentElement.setAttribute('data-theme', theme)
-        set({
-          nodes:          saved.nodes,
-          edges:          saved.edges ?? [],
-          viewport:       saved.viewport ?? { x: 0, y: 0, zoom: 1 },
-          categories:     saved.categories ?? DEFAULT_CATEGORIES,
-          activeCategoryId: saved.activeCategoryId ?? (saved.categories?.[0]?.id ?? 'cat_work'),
+        
+        // Handle migration from old versions
+        const workspaces = saved.workspaces ?? (saved.categories?.map(c => ({
+          ...c,
           sessionHistory: saved.sessionHistory ?? [],
+          viewport: saved.viewport ?? { x: 0, y: 0, zoom: 1 }
+        })) ?? DEFAULT_WORKSPACES)
+
+        const activeWorkspaceId = saved.activeWorkspaceId ?? (saved.activeCategoryId ?? workspaces[0].id)
+
+        set({
+          nodes:            saved.nodes            ?? [],
+          edges:            saved.edges            ?? [],
+          workspaces,
+          activeWorkspaceId,
+          theme,
+          isSidebarOpen:    saved.isSidebarOpen    ?? true,
+          isAIPanelOpen:    saved.isAIPanelOpen    ?? false,
+          filter:           saved.filter           ?? 'all',
           aiProvider:       saved.aiProvider       ?? get().aiProvider,
           aiConversations:  saved.aiConversations  ?? [],
-          aiCurrentId:      saved.aiConversations?.[0]?.id ?? null,
-          theme,
+          aiCurrentId:      saved.aiCurrentId      ?? (saved.aiConversations?.[0]?.id ?? null),
+          aiContextEnabled: saved.aiContextEnabled ?? true,
         })
       }
     } catch (e) { console.error('Load failed', e) }

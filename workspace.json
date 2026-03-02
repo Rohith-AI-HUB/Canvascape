@@ -1,28 +1,5 @@
 {
-  "nodes": [
-    {
-      "id": "settings_1772456007728",
-      "type": "settingsNode",
-      "position": {
-        "x": 357.4977892592515,
-        "y": 237.87498831946704
-      },
-      "data": {
-        "title": "Settings",
-        "createdAt": 1772456007728
-      },
-      "style": {
-        "width": 500,
-        "height": 600,
-        "zIndex": 101
-      },
-      "zIndex": 104,
-      "dragHandle": ".node-drag-handle",
-      "width": 500,
-      "height": 600,
-      "selected": true
-    }
-  ],
+  "nodes": [],
   "edges": [],
   "viewport": {
     "x": 75,
@@ -52,11 +29,11 @@
       "emoji": "🏠"
     }
   ],
-  "activeCategoryId": "cat_work",
+  "activeCategoryId": null,
   "theme": "light",
   "sessionHistory": [],
   "aiProvider": {
-    "active": "openai",
+    "active": "ollama",
     "openai": {
       "apiKey": "",
       "model": "gpt-4o"
@@ -71,10 +48,15 @@
     },
     "ollama": {
       "baseUrl": "http://localhost:11434",
-      "model": "llama3.2"
+      "model": "llama3.2:3b"
     }
   },
   "aiConversations": [],
-  "version": 3,
-  "savedAt": 1772456065460
+  "aiCurrentId": null,
+  "isSidebarOpen": true,
+  "isAIPanelOpen": false,
+  "filter": "all",
+  "aiContextEnabled": true,
+  "version": 4,
+  "savedAt": 1772457995756
 }

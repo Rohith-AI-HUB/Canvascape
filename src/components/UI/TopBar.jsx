@@ -88,6 +88,7 @@ export default function TopBar() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={openAIOnCanvas}
+            className="titlebar-no-drag"
             style={{
               position: 'relative',
               display: 'flex', alignItems: 'center', gap: 7, padding: '5px 12px 5px 8px',
@@ -173,8 +174,8 @@ export default function TopBar() {
       </div>
 
       {/* Right: Zoom + Count */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={pillStyle}>
+      <div className="titlebar-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="titlebar-no-drag" style={pillStyle}>
           <TBtn title="Zoom in"  onClick={() => rf.zoomIn({ duration: 160 })}>
             <path d="M8 4v8M4 8h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </TBtn>
@@ -189,7 +190,7 @@ export default function TopBar() {
         </div>
 
         {count > 0 && (
-          <div style={{
+          <div className="titlebar-no-drag" style={{
             ...pillStyle, padding: '5px 12px', fontSize: 11.5, color: 'var(--t3)', fontWeight: 500, gap: 5,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--a)', opacity: 0.7 }}/>
@@ -211,6 +212,7 @@ function TBtn({ onClick, title, hovered, onMouseEnter, children }) {
       onClick={onClick}
       title={title}
       onMouseEnter={onMouseEnter}
+      className="titlebar-no-drag"
       style={{
         position: 'relative',
         width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -258,6 +260,7 @@ function LogoMark({ onClick }) {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
+      className="titlebar-no-drag"
       style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--a-bg)', border: '1px solid var(--bd-a)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: onClick ? 'pointer' : 'default' }}>
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
         <rect x="2" y="2" width="5" height="5" rx="1.5" stroke="var(--a)" strokeWidth="1.4"/>
@@ -275,6 +278,7 @@ function ZoomLevel({ pct, isDark, onReset }) {
     <button
       onClick={onReset}
       title={isAt100 ? 'Already at 100%' : 'Reset zoom to 100%'}
+      className="titlebar-no-drag"
       style={{
         minWidth: 40, height: 28, padding: '0 4px', borderRadius: 7, border: 'none',
         cursor: isAt100 ? 'default' : 'pointer', background: 'transparent',

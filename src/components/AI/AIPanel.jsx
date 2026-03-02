@@ -108,8 +108,10 @@ export default function AIPanel() {
     aiContextEnabled, setAIContextEnabled,
     aiNewChat, aiSelectConv, aiDeleteConv,
     aiCurrentMessages, aiPushMessage, aiUpdateLastMessage,
-    addIdeNode, nodes, theme,
+    addIdeNode, nodes, theme, activeWorkspaceId, getActiveWorkspace
   } = store
+
+  const activeWorkspace = getActiveWorkspace()
 
   const [tab, setTab]           = useState('chat')   // 'chat' | 'history' | 'settings'
   const [input, setInput]       = useState('')
@@ -144,13 +146,14 @@ export default function AIPanel() {
 
   // Workspace context builder
   const buildContext = useCallback(() => {
-    const tabs = nodes.filter(n => n.type === 'webNode')
-    const ideCount = nodes.filter(n => n.type === 'ideNode').length
+    const wsNodes = nodes.filter(n => n.data?.workspaceId === activeWorkspaceId || (!activeWorkspaceId && !n.data?.workspaceId))
+    const tabs = wsNodes.filter(n => n.type === 'webNode')
+    const ideCount = wsNodes.filter(n => n.type === 'ideNode').length
     const list = tabs.map((n, i) =>
       `${i+1}. "${n.data.title || 'Untitled'}" - ${n.data.url}${n.data.note ? ` [note: ${n.data.note}]` : ''}`
-    ).join('\n') || 'No web cards are currently open.'
-    return `You are an AI assistant embedded in Canvascape, a spatial canvas browser where websites and live IDE cards exist on an infinite canvas.\n\nThe user currently has ${tabs.length} web card${tabs.length > 1 ? 's' : ''} open:\n${list}\n\nThey also have ${ideCount} live IDE card${ideCount === 1 ? '' : 's'}.\n\nWhen the user asks to create a webpage or website, return complete HTML inside one \`\`\`html code block.\nBe concise, helpful, and workspace-aware.`
-  }, [nodes])
+    ).join('\n') || 'No web cards are currently open in this workspace.'
+    return `You are an AI assistant embedded in Canvascape, a spatial canvas browser where websites and live IDE cards exist on an infinite canvas.\n\nThe user is currently in the "${activeWorkspace?.label || 'Default'}" workspace and has ${tabs.length} web card${tabs.length > 1 ? 's' : ''} open:\n${list}\n\nThey also have ${ideCount} live IDE card${ideCount === 1 ? '' : 's'} in this workspace.\n\nWhen the user asks to create a webpage or website, return complete HTML inside one \`\`\`html code block.\nBe concise, helpful, and workspace-aware.`
+  }, [nodes, activeWorkspaceId, activeWorkspace])
 
   const send = useCallback(async (overrideText) => {
     const text = (overrideText ?? input).trim()

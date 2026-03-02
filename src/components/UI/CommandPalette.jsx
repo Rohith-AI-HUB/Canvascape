@@ -18,9 +18,12 @@ export default function CommandPalette() {
     isCommandOpen, setCommandOpen,
     nodes, addWebNode, setActiveNode,
     toggleSidebar, toggleTheme, setComposerOpen,
-    sessionHistory, restoreFromHistory, clearHistory,
+    getActiveWorkspace, restoreFromHistory, clearHistory,
     theme,
   } = useWorkspaceStore()
+
+  const activeWorkspace = getActiveWorkspace()
+  const sessionHistory = activeWorkspace?.sessionHistory || []
 
   const [query,    setQuery]   = useState('')
   const [selected, setSelected] = useState(0)
@@ -173,14 +176,14 @@ export default function CommandPalette() {
           {/* Palette */}
           <motion.div
             key="cp-panel"
-            initial={{ opacity: 0, scale: 0.96, y: -16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -10 }}
+            initial={{ opacity: 0, scale: 0.96, y: -16, x: '-50%' }}
+            animate={{ opacity: 1, scale: 1, y: '-50%', x: '-50%' }}
+            exit={{ opacity: 0, scale: 0.96, y: -10, x: '-50%' }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'fixed', zIndex: 501,
-              top: '22%', left: '50%', transform: 'translateX(-50%)',
+              top: '50%', left: '50%',
               width: 'min(580px, calc(100vw - 24px))',
               background: bg,
               border: `1px solid ${border}`,
