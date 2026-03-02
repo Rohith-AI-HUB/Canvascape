@@ -4,13 +4,12 @@ import { useWorkspaceStore } from '../../store/workspaceStore'
 
 export default function CanvasSidebar() {
   const { nodes, categories, addWebNode, addCategory, renameCategory, removeCategory,
-    toggleSidebar, setComposerOpen, theme, toggleTheme } = useWorkspaceStore()
+    setComposerOpen } = useWorkspaceStore()
   const [expanded, setExpanded] = useState(() => new Set(['__none__']))
   const [addingCat, setAddingCat] = useState(false)
   const [newLabel,  setNewLabel]  = useState('')
   const [editId,    setEditId]    = useState(null)
   const [editLabel, setEditLabel] = useState('')
-  const isDark = theme === 'dark'
 
   const webNodes      = nodes.filter(n => n.type === 'webNode')
   const uncategorized = webNodes.filter(n => !n.data?.categoryId)
@@ -27,7 +26,7 @@ export default function CanvasSidebar() {
     }}>
       {/* ── Header ── */}
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
         padding: '0 16px', height: 54, borderBottom: '1px solid var(--bd)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -38,17 +37,6 @@ export default function CanvasSidebar() {
           }}>
             Canvas<span style={{ color: 'var(--a)' }}>scape</span>
           </span>
-        </div>
-        <div style={{ display: 'flex', gap: 2 }}>
-          <SbBtn title={isDark ? 'Light mode' : 'Dark mode'} onClick={toggleTheme}>
-            {isDark
-              ? <path d="M8 1.5V3M8 13v1.5M1.5 8H3M13 8h1.5M3.6 3.6l1 1M11.4 11.4l1 1M11.4 3.6l-1 1M4.6 11.4l-1 1M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-              : <path d="M13.5 9A6 6 0 0 1 7 2.5 5.5 5.5 0 1 0 13.5 9z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-            }
-          </SbBtn>
-          <SbBtn title="Collapse sidebar (Ctrl+\)" onClick={toggleSidebar}>
-            <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </SbBtn>
         </div>
       </div>
 

@@ -1,190 +1,169 @@
-# 🌌 Canvascape — Project Memory Document
+# Canvascape - Project Memory Document
 
-> **What is Canvascape?**
-> Canvascape is a Windows-native infinite canvas browser — Nimo Infinity, but for Windows, built in Rohit's style. It replaces browser tabs with floating web cards on an infinite spatial canvas.
+## What is Canvascape?
+Canvascape is a Windows-first infinite-canvas browser workspace. Instead of tab strips, websites are represented as movable and resizable cards on a spatial canvas.
 
----
+## Vision
+- Bring the "spatial browser" workflow to Windows in a native Electron app.
+- Keep a premium dual-theme UI (dark and light) with a warm amber accent system.
+- Support project-style browsing with categories, groups, and persistent sessions.
+- Expand toward assistant features, memory, and command workflows.
 
-## 🎯 Vision
-
-- **Nimo Infinity** is Mac-only. Canvascape brings the same concept to Windows.
-- Beautiful, premium **dark AND light** UI — spatial, intelligent, productive.
-- Cards (webviews) float on an infinite canvas. You drag, resize, group, and organize them.
-- Future: AI assistant, dynamic apps, MCP integrations, memory.
-
----
-
-## 🛠️ Tech Stack
-
+## Tech Stack
 | Layer | Tech |
-|-------|------|
-| Framework | Electron 29 + React 18 |
-| Canvas | ReactFlow (reactflow 11) |
-| Animations | Framer Motion |
+|---|---|
+| Desktop shell | Electron 29 |
+| Frontend | React 18 |
+| Canvas engine | React Flow 11 (`reactflow`) |
 | State | Zustand |
-| Styling | Tailwind CSS + CSS variables |
-| Bundler | Vite |
-| Package | npm |
+| Animation | Framer Motion |
+| Styling | CSS variables + Tailwind utility support |
+| Bundler | Vite 5 |
+| Package manager | npm |
 
-**Project Path:** `C:\Users\rohit\Documents\Canvascape`
+Project path: `C:\Users\rohit\Documents\Canvascape`
 
----
-
-## 📁 Project Structure
-
+## Current Structure
 ```
 Canvascape/
-├── electron/           # Electron main process
-│   └── main.js         # GPU flags, window creation, IPC
-├── src/
-│   ├── App.jsx         # Root shell, titlebar, layout, theme provider
-│   ├── main.jsx        # React entry
-│   ├── components/
-│   │   ├── Canvas/     # CanvasWorkspace.jsx (ReactFlow)
-│   │   ├── Groups/     # Group node
-│   │   ├── Nodes/      # WebNode.jsx, WebNodeHeader.jsx
-│   │   ├── Sidebar/    # CanvasSidebar.jsx
-│   │   └── UI/         # BottomBar, WorkspaceToolbar, LoadingScreen
-│   ├── hooks/
-│   ├── store/          # workspaceStore.js (Zustand)
-│   ├── styles/
-│   │   └── globals.css # CSS variables (dark/light) + all component styles
-│   └── utils/          # urlUtils.js, debounce.js
-├── index.html
-├── package.json
-├── vite.config.js
-└── tailwind.config.js
+|-- electron/
+|   |-- main.js
+|   `-- preload.js
+|-- src/
+|   |-- App.jsx
+|   |-- main.jsx
+|   |-- store/workspaceStore.js
+|   |-- styles/globals.css
+|   |-- hooks/useContextMenu.js
+|   |-- utils/
+|   |   |-- debounce.js
+|   |   `-- urlUtils.js
+|   `-- components/
+|       |-- Canvas/
+|       |   |-- CanvasWorkspace.jsx
+|       |   `-- CanvasContextMenu.jsx
+|       |-- Nodes/
+|       |   |-- WebNode.jsx
+|       |   `-- WebNodeHeader.jsx
+|       |-- Groups/GroupFrame.jsx
+|       |-- Sidebar/CanvasSidebar.jsx
+|       `-- UI/
+|           |-- BottomBar.jsx
+|           |-- BottomComposer.jsx (legacy, not mounted by App.jsx)
+|           |-- FloatingSearchBar.jsx
+|           |-- LoadingScreen.jsx
+|           `-- WorkspaceToolbar.jsx
+|-- workspace.json (local dev data in repo root)
+|-- package.json
+|-- vite.config.js
+`-- tailwind.config.js
 ```
 
----
+## Architecture Notes
 
-## 🎨 Design System
+### Electron
+- `electron/main.js` creates a single-instance app window and enables `webviewTag`.
+- Workspace persistence is saved to:
+  - `C:\Users\<user>\Documents\Canvascape\workspace.json` (via IPC).
+- `did-attach-webview` handlers harden navigation:
+  - external popups open in system browser;
+  - non-http(s) main-frame navigation is blocked (except `about:blank`).
 
-### Theme System
-- Controlled via `data-theme="dark"` or `data-theme="light"` on `<html>`
-- Set by `toggleTheme()` in workspaceStore — persisted to workspace.json
-- CSS variables defined in `globals.css` under `:root, [data-theme="dark"]` and `[data-theme="light"]`
-- Theme toggle button (sun/moon icon) in sidebar header
+### Preload Bridge
+- `electron/preload.js` exposes:
+  - `window.canvascape.workspace.load()`
+  - `window.canvascape.workspace.save(data)`
+  - `window.canvascape.workspace.getPath()`
+  - `window.canvascape.platform`
 
-### CSS Variables (key ones)
-```
---c-canvas       Canvas/app background
---c-bg           Same as canvas
---c-surface      Card/panel background
---c-surface2     Inputs, elevated surfaces
---c-surface3     Hover states
---c-glass        Backdrop-filtered surfaces (bottom bar, composer)
---c-border       Default border (rgba white/violet ~7%)
---c-border-h     Hover border
---c-border-a     Active/focus border (violet 55%)
---c-text         Primary text
---c-text2        Secondary text
---c-muted        Tertiary/placeholder
---c-soft         Disabled/very dim
---c-accent       Brand violet #7B61FF
---c-accent2      Soft violet #A78BFA
---c-accent-bg    Accent background tint
---c-header       WebNode header bg
---c-header-a     WebNode header bg (active)
---c-dot          Canvas dot grid color
-```
+### Frontend State + Canvas
+- `workspaceStore.js` is the central state layer for:
+  - node/edge state, viewport, active node, categories, filter, sidebar/composer state, theme.
+- `CanvasWorkspace.jsx` wires React Flow behaviors:
+  - pan/zoom, minimap, dot background, context menu.
+- Cross-component canvas commands use window events:
+  - `canvas:fitview`
+  - `canvas:flyto`
 
-### Dark Theme Colors
-```
-Canvas:   #0D0D0F   Surface: #141417   Surface2: #1C1C21
-Text:     #F0EEFF   Muted:   #6B6880   Soft:     #3A3750
-Accent:   #7B61FF   Accent2: #A78BFA
-```
+## Theme System
+- Theme is controlled by `data-theme` on `document.documentElement`.
+- Store key: `theme` (`dark` or `light`).
+- Theme is persisted in workspace JSON (`version: 2` payload).
 
-### Light Theme Colors
-```
-Canvas:   #F2F0F8   Surface: #FFFFFF    Surface2: #F5F3FC
-Text:     #1A1628   Muted:   #8B83A8   Soft:     #C4BEDC
-Accent:   #7B61FF   Accent2: #6B50F0
-```
+### Core CSS Tokens
+- Surface: `--bg`, `--canvas`, `--s1`, `--s2`, `--s3`, `--s4`, `--glass`
+- Borders: `--bd`, `--bd-h`, `--bd-a`
+- Text: `--t1`, `--t2`, `--t3`, `--t4`
+- Accent: `--a`, `--a2`, `--a-dim`, `--a-bg`, `--a-bg2`, `--a-glow`
+- Effects: `--dot`, `--sh-card`, `--sh-active`, `--sh-panel`, `--sh-pill`
 
-### Design Language
-- macOS-style traffic lights on WebNode (14px, with hover SVG icons)
-- Red = Close card, Yellow = Minimize to app card, Green = Reload
-- Traffic light icons appear on group hover (`tlHover` state)
-- Sidebar seamlessly blends into canvas background
-- CSS `data-theme` attribute drives all theming
+### Current Palette Direction
+- Dark: near-black warm neutrals with amber accent.
+- Light: off-white warm neutrals with amber accent.
 
----
+## Implemented Features
+- Infinite canvas with drag, pan, zoom, minimap, and fit-to-view.
+- Web cards rendered with Electron `webview`.
+- Card resize (`NodeResizer`) with per-node persisted dimensions.
+- Node z-order focus handling via `activeNodeId` and explicit `zIndex`.
+- Node header traffic lights:
+  - close card
+  - minimize to compact tile
+  - reload
+- Minimized tile mode with restore behavior and favicon/title summary.
+- Sidebar workspace tree:
+  - uncategorized section
+  - category expand/collapse
+  - add/rename/delete category
+  - add tab into specific category
+  - pin/unpin from row action
+- Bottom command bar:
+  - open composer
+  - quick-open presets
+  - category selection at open time
+  - sidebar toggle
+  - fit-view trigger
+  - theme toggle
+- Canvas context menu:
+  - new website
+  - new group
+  - new category
+  - duplicate node
+  - pin/unpin node
+  - close node
+- Group frames (`groupFrame`) with editable title, color cycling, and resize.
+- Time filters (`all`, `week`, `today`) that dim old web nodes.
+- Keyboard shortcuts:
+  - `Ctrl+N` / `Cmd+N`: open composer
+  - `Ctrl+\` / `Cmd+\`: toggle sidebar
+- Persistence:
+  - nodes, edges, viewport, categories, theme, version, timestamp.
+- Windows title bar integration with `window.canvascape.platform`.
 
-## ✅ Features Implemented
+## Known Issues / Tech Debt
+- Repository has mixed/legacy encoding artifacts in some source comments and symbol strings.
+- `BottomComposer.jsx` appears legacy and is not mounted in `App.jsx`.
+- `FloatingSearchBar.jsx` exists but is not part of the active shell.
+- `CanvasContextMenu.jsx` currently uses a light-styled palette; not fully theme-tokenized.
+- No automated tests are present for store logic or Electron IPC flow.
+- Persistence file location differs between:
+  - local repo root `workspace.json` (dev artifact), and
+  - actual runtime save path in user Documents folder.
 
-| Feature | Status |
-|---------|--------|
-| Infinite canvas with drag/pan/zoom | ✅ |
-| WebView cards (Electron webview) | ✅ |
-| Card resizing (NodeResizer) | ✅ |
-| Sidebar with categories/spaces | ✅ |
-| Pin cards | ✅ |
-| Bottom bar + composer (URL opener) | ✅ |
-| Quick-open sites | ✅ |
-| Filter by time (All/Week/Today) | ✅ |
-| Zoom controls | ✅ |
-| Fit-to-view | ✅ |
-| Loading bar | ✅ |
-| Windows custom titlebar | ✅ |
-| Dark premium UI | ✅ |
-| **Light theme** | ✅ (v4) |
-| **Theme toggle** (sidebar header) | ✅ (v4) |
-| **Minimize to app card** (yellow button) | ✅ (v4) |
-| **Traffic lights with SVG icons** | ✅ (v4) |
-| **Trackpad two-finger pan fix** | ✅ (v4) |
-| **Webview blur fix** (GPU flags) | ✅ (v4) |
-| Persistent storage (workspace.json) | ✅ |
-| Context menu | ✅ |
+## Roadmap (Next)
+- Command palette (`Ctrl+K`) for actions/search.
+- Session history and restore presets.
+- Card notes/annotations.
+- Tab stacks per card.
+- Better grouped workspace controls.
+- AI assistant side panel with workspace-aware context.
 
----
-
-## 🚀 Nimo Features To Implement (Roadmap)
-
-| Feature | Priority | Notes |
-|---------|----------|-------|
-| **Card groups / workspaces** | High | Group cards by project on canvas |
-| **AI assistant (chat panel)** | High | Sidebar AI chat, context-aware |
-| **Command palette** (Ctrl+K) | High | Quick actions, search, jump |
-| **Card context memory** | Medium | Remember what was open |
-| **History / sessions** | Medium | Resume previous layouts |
-| **Card notes / annotations** | Medium | Sticky notes on canvas |
-| **Picture-in-picture cards** | Medium | Mini floating webview |
-| **Tab stacking inside card** | Medium | Multiple URLs in one card |
-| **Keyboard shortcut panel** | Low | Show all shortcuts |
-| **Card sharing / export** | Low | Share card URLs as layout |
-| **Canvas themes** | Low | Multiple color themes |
-| **Spotlight search** | Low | Find cards by content/title |
-
----
-
-## 💡 Rohit's Custom Ideas (Add here as they come)
-
-_(Rohit will add ideas in future sessions — Claude should refer to this section)_
-
----
-
-## 🔧 Known Issues / Tech Debt
-
-- `WinTitleBar` in App.jsx only renders if `window.canvascape.platform === 'win32'` — ensure Electron preload exposes this.
-- `ReactFlow` controls hidden via CSS; custom zoom/fit wired via `useReactFlow`.
-- `canvas:flyto` and `canvas:fitview` use `window.dispatchEvent` for cross-provider communication.
-- BottomBar uses `setComposerOpen` from outside ReactFlowProvider — intentional.
-- `panOnScroll=true` + `zoomOnScroll=false` = trackpad two-finger swipe = PAN. Ctrl+scroll = zoom (browser default). This is correct behavior.
-- Webview blur fix: `force-device-scale-factor=1` in main.js may affect HiDPI sharpness on some monitors — if text looks oversized, remove that flag.
-- Theme is stored in workspace.json and applied on `loadWorkspace()`. On first run (no saved file), defaults to dark.
-
----
-
-## 📝 Session Log
-
+## Session Log
 | Date | Changes |
-|------|---------|
-| 2026-03-02 | Initial project review. Dark premium UI redesign (v2). Created project document. |
-| 2026-03-02 | UI v3 — Unified Dark Overhaul. Sidebar, WebNodeHeader, WorkspaceToolbar all dark. macOS traffic lights added. |
-| 2026-03-02 | **UI v4 — Light/Dark theme system, minimize-to-card, traffic light icons, trackpad pan fix, webview blur fix.** |
+|---|---|
+| 2026-03-02 | Initial project memory file created. |
+| 2026-03-02 | v3/v4 UI iterations documented (theme system, minimize tile, traffic-light controls, input and pan behavior updates). |
+| 2026-03-02 | Document refreshed to match current codebase structure, active components, theme tokens, implemented features, and known tech debt. |
 
 ---
-
-*This document is Claude's memory for the Canvascape project. Update after every significant session.*
+This file is the working memory for the project and should be updated after significant architecture or UI changes.
