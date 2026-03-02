@@ -6,7 +6,6 @@ import CanvasSidebar   from './components/Sidebar/CanvasSidebar'
 import BottomBar       from './components/UI/BottomBar'
 import LoadingScreen   from './components/UI/LoadingScreen'
 import CommandPalette  from './components/UI/CommandPalette'
-import AIPanel        from './components/AI/AIPanel'
 
 export default function App() {
   const { isLoading, loadWorkspace, isSidebarOpen, theme } = useWorkspaceStore()
@@ -35,11 +34,7 @@ export default function App() {
         e.preventDefault()
         setCommandOpen(true)
       }
-      // Ctrl+Shift+A — AI panel
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'a') {
-        e.preventDefault()
-        useWorkspaceStore.getState().toggleAIPanel()
-      }
+
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -81,9 +76,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Global overlays — mounted outside the loading gate so shortcuts work immediately */}
+      {/* Global overlays */}
       <CommandPalette />
-      <AIPanel />
     </div>
   )
 }

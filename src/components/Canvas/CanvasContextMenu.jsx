@@ -6,7 +6,7 @@ import { useReactFlow } from 'reactflow'
 // Lives INSIDE ReactFlowProvider — useReactFlow() is safe
 export default function CanvasContextMenu({ x, y, type, nodeId, onClose }) {
   const ref = useRef(null)
-  const { addWebNode, addGroupNode, addCategory, removeNode, duplicateNode, togglePin, nodes } = useWorkspaceStore()
+  const { addWebNode, addIdeNode, addGroupNode, addCategory, removeNode, duplicateNode, togglePin, nodes } = useWorkspaceStore()
   const { screenToFlowPosition } = useReactFlow()
 
   const node = nodes.find(n => n.id === nodeId)
@@ -21,6 +21,7 @@ export default function CanvasContextMenu({ x, y, type, nodeId, onClose }) {
 
   const paneItems = [
     { label: 'New Website',  icon: '🌐', action: () => { addWebNode({ position: pos() }); onClose() } },
+    { label: 'New Live IDE', icon: '[]', action: () => { addIdeNode({ position: pos() }); onClose() } },
     { label: 'New Group',    icon: '🗂',  action: () => { addGroupNode({ position: pos() }); onClose() } },
     { sep: true },
     { label: 'New Category', icon: '🏷',  action: () => { addCategory('New Category'); onClose() } },
@@ -68,3 +69,4 @@ export default function CanvasContextMenu({ x, y, type, nodeId, onClose }) {
     </motion.div>
   )
 }
+

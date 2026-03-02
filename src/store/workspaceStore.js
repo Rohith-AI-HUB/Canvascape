@@ -197,6 +197,25 @@ export const useWorkspaceStore = create((set, get) => ({
     return id
   },
 
+  // ── Add AI canvas node ───────────────────────────────────────────────────────
+  addAICanvasNode: ({ position } = {}) => {
+    const id  = `ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const pos = position ?? { x: 200 + Math.random() * 200, y: 80 + Math.random() * 160 }
+    const z   = nextZ()
+    const node = {
+      id,
+      type:     'aiNode',
+      position: pos,
+      data:     { messages: [], createdAt: Date.now() },
+      style:    { width: 360, height: 520, zIndex: z },
+      zIndex:   z,
+      dragHandle: '.node-drag-handle',
+    }
+    set((s) => ({ nodes: [...s.nodes, node], activeNodeId: id }))
+    _save(get())
+    return id
+  },
+
   // ── Add group frame ─────────────────────────────────────────────────────────
   addGroupNode: ({ position, categoryId } = {}) => {
     const cats = get().categories

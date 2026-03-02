@@ -107,7 +107,7 @@ export default function AIPanel() {
     aiContextEnabled, setAIContextEnabled,
     aiNewChat, aiSelectConv, aiDeleteConv,
     aiCurrentMessages, aiPushMessage, aiUpdateLastMessage,
-    nodes, theme,
+    addIdeNode, nodes, theme,
   } = store
 
   const [tab, setTab]           = useState('chat')   // 'chat' | 'history' | 'settings'
@@ -144,11 +144,11 @@ export default function AIPanel() {
   // Workspace context builder
   const buildContext = useCallback(() => {
     const tabs = nodes.filter(n => n.type === 'webNode')
-    if (!tabs.length) return ''
+    const ideCount = nodes.filter(n => n.type === 'ideNode').length
     const list = tabs.map((n, i) =>
-      `${i+1}. "${n.data.title || 'Untitled'}" — ${n.data.url}${n.data.note ? ` [note: ${n.data.note}]` : ''}`
-    ).join('\n')
-    return `You are an AI assistant embedded in Canvascape — a spatial canvas browser where websites live as cards on an infinite canvas.\n\nThe user currently has ${tabs.length} web card${tabs.length > 1 ? 's' : ''} open:\n${list}\n\nBe concise, helpful, and workspace-aware. Reference specific tabs when relevant.`
+      `${i+1}. "${n.data.title || 'Untitled'}" - ${n.data.url}${n.data.note ? ` [note: ${n.data.note}]` : ''}`
+    ).join('\n') || 'No web cards are currently open.'
+    return `You are an AI assistant embedded in Canvascape, a spatial canvas browser where websites and live IDE cards exist on an infinite canvas.\n\nThe user currently has ${tabs.length} web card${tabs.length > 1 ? 's' : ''} open:\n${list}\n\nThey also have ${ideCount} live IDE card${ideCount === 1 ? '' : 's'}.\n\nWhen the user asks to create a webpage or website, return complete HTML inside one \`\`\`html code block.\nBe concise, helpful, and workspace-aware.`
   }, [nodes])
 
   const send = useCallback(async (overrideText) => {
@@ -185,7 +185,15 @@ export default function AIPanel() {
       messages: apiMsgs,
       signal: abortRef.current.signal,
       onChunk: c => { acc += c; aiUpdateLastMessage(acc) },
-      onDone:  () => { setStreaming(false); abortRef.current = null },
+      onDone:  () => {
+        setStreaming(false)
+        abortRef.current = null
+        const html = extractHtmlDoc(acc)
+        if (html) {
+          const title = extractHtmlTitle(html) || inferPageTitle(text)
+          addIdeNode({ title, html })
+        }
+      },
       onError: msg => {
         setError(msg)
         aiUpdateLastMessage(`⚠️ ${msg}`)
@@ -193,7 +201,7 @@ export default function AIPanel() {
         abortRef.current = null
       },
     })
-  }, [input, streaming, aiCurrentId, aiProvider, aiContextEnabled, buildContext, aiPushMessage, aiUpdateLastMessage, aiCurrentMessages, aiNewChat])
+  }, [input, streaming, aiCurrentId, aiProvider, aiContextEnabled, buildContext, aiPushMessage, aiUpdateLastMessage, aiCurrentMessages, aiNewChat, addIdeNode])
 
   const stop = () => { abortRef.current?.abort(); setStreaming(false) }
 
@@ -848,6 +856,34 @@ function normalizeOllamaBaseUrl(rawUrl) {
   return url.replace(/\/(v1|api)$/i, '')
 }
 
+function extractHtmlDoc(text) {
+  if (!text) return ''
+  const htmlFence = text.match(/```html\s*([\s\S]*?)```/i)
+  if (htmlFence?.[1]) return htmlFence[1].trim()
+
+  const anyFence = text.match(/```[\w-]*\s*([\s\S]*?)```/)
+  if (anyFence?.[1] && /<html|<!doctype html|<body/i.test(anyFence[1])) {
+    return anyFence[1].trim()
+  }
+
+  if (/<html|<!doctype html/i.test(text)) return text.trim()
+  return ''
+}
+
+function extractHtmlTitle(html) {
+  const m = html.match(/<title>([\s\S]*?)<\/title>/i)
+  return m?.[1]?.trim() || ''
+}
+
+function inferPageTitle(prompt) {
+  const p = (prompt || '').trim()
+  if (!p) return 'Generated Webpage'
+  if (/portfolio/i.test(p)) return 'Generated Portfolio'
+  if (/landing/i.test(p)) return 'Generated Landing Page'
+  if (/e-?commerce|store/i.test(p)) return 'Generated Storefront'
+  return 'Generated Webpage'
+}
+
 // Nav icons
 function ChatNavIcon() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3h10v7H8.5l-2 2.5V10H3V3z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
@@ -858,3 +894,5 @@ function HistoryNavIcon() {
 function SettingsNavIcon() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M3.5 3.5l1 1M11.5 11.5l1 1M3.5 12.5l1-1M11.5 4.5l1-1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
 }
+
+

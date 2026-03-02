@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useWorkspaceStore } from '../../store/workspaceStore'
-import { AIIcon } from '../AI/AIPanel'
 import { normalizeUrl, titleFromUrl, faviconUrl } from '../../utils/urlUtils'
 
 const QUICK = [
@@ -24,7 +23,7 @@ function modKey() {
 
 export default function BottomBar() {
   const { isComposerOpen, setComposerOpen, isSidebarOpen, toggleSidebar,
-    addWebNode, categories, theme, toggleTheme, toggleAIPanel, isAIPanelOpen } = useWorkspaceStore()
+    addWebNode, categories, theme, toggleTheme } = useWorkspaceStore()
   const [input, setInput]   = useState('')
   const [selCat, setSelCat] = useState(null)
   const inputRef = useRef(null)
@@ -99,25 +98,7 @@ export default function BottomBar() {
           }
         </BarBtn>
 
-        <div style={{ width: 1, height: 18, background: isDark ? 'rgba(255,245,220,0.08)' : 'rgba(100,80,40,0.1)', flexShrink: 0 }}/>
 
-        {/* AI Panel */}
-        <button
-          onClick={toggleAIPanel}
-          title="AI Assistant (Ctrl+Shift+A)"
-          style={{
-            width: 34, height: 34, borderRadius: 9, border: isAIPanelOpen ? '1px solid var(--bd-a)' : 'none',
-            cursor: 'pointer', flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: isAIPanelOpen ? 'var(--a-bg)' : 'transparent',
-            color: isAIPanelOpen ? 'var(--a)' : 'var(--t3)',
-            transition: 'all 130ms',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--s3)'; e.currentTarget.style.color = 'var(--a)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = isAIPanelOpen ? 'var(--a-bg)' : 'transparent'; e.currentTarget.style.color = isAIPanelOpen ? 'var(--a)' : 'var(--t3)' }}
-        >
-          <AIIcon size={15} color="currentColor"/>
-        </button>
       </div>
 
       {/* ── Composer Modal ── */}

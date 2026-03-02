@@ -3,12 +3,14 @@ import ReactFlow, { Background, MiniMap, ReactFlowProvider, useReactFlow, Backgr
 import 'reactflow/dist/style.css'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import WebNode           from '../Nodes/WebNode'
+import IDENode           from '../Nodes/IDENode'
 import GroupFrame        from '../Groups/GroupFrame'
 import CanvasContextMenu from './CanvasContextMenu'
 import WorkspaceToolbar  from '../UI/WorkspaceToolbar'
 import { useContextMenu } from '../../hooks/useContextMenu'
+import AICanvasNode from '../AI/AICanvasNode'
 
-const NODE_TYPES = { webNode: WebNode, groupFrame: GroupFrame }
+const NODE_TYPES = { webNode: WebNode, ideNode: IDENode, groupFrame: GroupFrame, aiNode: AICanvasNode }
 
 function CanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, viewport, setViewport,
