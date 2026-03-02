@@ -6,9 +6,9 @@ let _zCounter = 100
 const nextZ = () => ++_zCounter
 
 const DEFAULT_CATEGORIES = [
-  { id: 'cat_work',     label: 'Work',     color: '#A78BFA', bg: 'rgba(167,139,250,0.08)' },
-  { id: 'cat_research', label: 'Research', color: '#60A5FA', bg: 'rgba(96,165,250,0.08)'  },
-  { id: 'cat_personal', label: 'Personal', color: '#34D399', bg: 'rgba(52,211,153,0.08)'  },
+  { id: 'cat_work',     label: 'Work',     color: '#A78BFA', bg: 'rgba(167,139,250,0.08)', emoji: '💼' },
+  { id: 'cat_research', label: 'Research', color: '#60A5FA', bg: 'rgba(96,165,250,0.08)', emoji: '🔬' },
+  { id: 'cat_personal', label: 'Personal', color: '#34D399', bg: 'rgba(52,211,153,0.08)', emoji: '🏠' },
 ]
 
 const PALETTE = [
@@ -53,7 +53,6 @@ export const useWorkspaceStore = create((set, get) => ({
   isComposerOpen:  false,
   isCommandOpen:   false,
   isAIPanelOpen:   false,
-  isSettingsOpen:  false,
   theme:           'dark',
 
   setActiveCategoryId: (id) => set({ activeCategoryId: id }),
@@ -215,6 +214,33 @@ export const useWorkspaceStore = create((set, get) => ({
       position: pos,
       data:     { messages: [], createdAt: Date.now() },
       style:    { width: 360, height: 520, zIndex: z },
+      zIndex:   z,
+      dragHandle: '.node-drag-handle',
+    }
+    set((s) => ({ nodes: [...s.nodes, node], activeNodeId: id }))
+    _save(get())
+    return id
+  },
+
+  // ── Add Settings node ───────────────────────────────────────────────────────
+  addSettingsNode: ({ position } = {}) => {
+    const s = get()
+    // Check if settings node already exists
+    const existing = s.nodes.find(n => n.type === 'settingsNode')
+    if (existing) {
+      get().setActiveNode(existing.id)
+      return existing.id
+    }
+
+    const id  = `settings_${Date.now()}`
+    const pos = position ?? { x: 200 + Math.random() * 200, y: 80 + Math.random() * 160 }
+    const z   = nextZ()
+    const node = {
+      id,
+      type:     'settingsNode',
+      position: pos,
+      data:     { title: 'Settings', createdAt: Date.now() },
+      style:    { width: 500, height: 600, zIndex: z },
       zIndex:   z,
       dragHandle: '.node-drag-handle',
     }
@@ -421,6 +447,13 @@ export const useWorkspaceStore = create((set, get) => ({
     set((s) => ({ categories: s.categories.map((c) => c.id === id ? { ...c, label } : c) }))
     _save(get())
   },
+  updateCategory: (id, patch) => {
+    set((s) => ({
+      categories: s.categories.map((c) => c.id === id ? { ...c, ...patch } : c),
+      nodes: s.nodes.map((n) => n.data?.categoryId === id ? { ...n, data: { ...n.data, color: patch.color ?? n.data.color, bg: patch.bg ?? n.data.bg } } : n)
+    }))
+    _save(get())
+  },
   removeCategory: (id) => {
     set((s) => {
       const nextCats = s.categories.filter((c) => c.id !== id)
@@ -440,7 +473,6 @@ export const useWorkspaceStore = create((set, get) => ({
   setCommandOpen:   (val) => set({ isCommandOpen: val }),
   toggleAIPanel:    ()    => set((s) => ({ isAIPanelOpen: !s.isAIPanelOpen })),
   setAIPanelOpen:   (val) => set({ isAIPanelOpen: val }),
-  setSettingsOpen:  (val) => set({ isSettingsOpen: val }),
   toggleTheme:     ()    => {
     set((s) => {
       const next = s.theme === 'dark' ? 'light' : 'dark'

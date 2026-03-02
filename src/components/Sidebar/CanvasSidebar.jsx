@@ -3,13 +3,14 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 
 export default function CanvasSidebar() {
-  const { nodes, categories, activeCategoryId, addWebNode, addCategory, renameCategory, removeCategory,
+  const { nodes, categories, activeCategoryId, addWebNode, addCategory, renameCategory, updateCategory, removeCategory,
     toggleSidebar, setComposerOpen, sessionHistory, restoreFromHistory } = useWorkspaceStore()
   const [expanded, setExpanded] = useState(() => new Set(['__none__']))
   const [addingCat, setAddingCat] = useState(false)
   const [newLabel,  setNewLabel]  = useState('')
   const [editId,    setEditId]    = useState(null)
   const [editLabel, setEditLabel] = useState('')
+  const [showPicker, setShowPicker] = useState(false)
 
   const activeCategory = categories.find(c => c.id === activeCategoryId)
   const webNodes      = nodes.filter(n => n.type === 'webNode')
@@ -18,7 +19,25 @@ export default function CanvasSidebar() {
   const flyTo  = id => window.dispatchEvent(new CustomEvent('canvas:flyto', { detail: { nodeId: id } }))
   const toggle = id => setExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const commitAdd  = () => { if (newLabel.trim()) addCategory(newLabel.trim()); setAddingCat(false); setNewLabel('') }
-  const commitEdit = () => { if (editLabel.trim()) renameCategory(editId, editLabel.trim()); setEditId(null) }
+  const commitEdit = () => {
+    if (editLabel.trim() && editId) {
+      updateCategory(editId, { label: editLabel.trim() })
+    }
+    setEditId(null)
+  }
+
+  const PALETTE = [
+    { color: '#A78BFA', bg: 'rgba(167,139,250,0.08)' },
+    { color: '#60A5FA', bg: 'rgba(96,165,250,0.08)'  },
+    { color: '#34D399', bg: 'rgba(52,211,153,0.08)'  },
+    { color: '#F97316', bg: 'rgba(249,115,22,0.08)'  },
+    { color: '#F472B6', bg: 'rgba(244,114,182,0.08)' },
+    { color: '#FBBF24', bg: 'rgba(251,191,36,0.08)'  },
+    { color: '#EF4444', bg: 'rgba(239,68,68,0.08)'   },
+    { color: '#10B981', bg: 'rgba(16,185,129,0.08)'  },
+  ]
+
+  const EMOJIS = ['💼', '🔬', '🏠', '🎨', '📚', '🚀', '🧠', '⚡', '🌟', '🎮', '🍎', '🌈']
 
   return (
     <div style={{
@@ -50,11 +69,93 @@ export default function CanvasSidebar() {
       </button>
 
       {/* ── Active Workspace label ── */}
-      <div style={{ padding: '12px 16px 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: activeCategory?.color || 'var(--t4)' }} />
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--t2)' }}>
-          {activeCategory?.label || 'Unsorted'}
-        </span>
+      <div style={{ padding: '12px 16px 4px', display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
+        {editId === activeCategory?.id ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+            <div 
+              onClick={() => setShowPicker(!showPicker)}
+              onMouseDown={e => e.preventDefault()}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, cursor: 'pointer', borderRadius: 6, background: 'var(--s2)', border: '1px solid var(--bd)' }}
+            >
+              {activeCategory?.emoji ? (
+                <span style={{ fontSize: 14 }}>{activeCategory.emoji}</span>
+              ) : (
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: activeCategory?.color || 'var(--t4)' }} />
+              )}
+            </div>
+            <input
+              autoFocus
+              value={editLabel}
+              onChange={e => setEditLabel(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') commitEdit()
+                if (e.key === 'Escape') setEditId(null)
+              }}
+              onBlur={() => { if (!showPicker) commitEdit() }}
+              style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--a)', color: 'var(--t1)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', outline: 'none', padding: '2px 0' }}
+            />
+            <button 
+              onClick={commitEdit}
+              style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--a)', display: 'flex', alignItems: 'center' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            {showPicker && (
+              <div 
+                onMouseDown={e => e.preventDefault()}
+                style={{ position: 'absolute', top: 38, left: 16, background: 'var(--s2)', border: '1px solid var(--bd)', borderRadius: 12, padding: 12, zIndex: 100, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', width: 180 }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Color</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+                  {PALETTE.map(p => (
+                    <div key={p.color} 
+                      onClick={() => updateCategory(activeCategory.id, { color: p.color, bg: p.bg, emoji: null })}
+                      style={{ width: 24, height: 24, borderRadius: '50%', background: p.color, cursor: 'pointer', border: (!activeCategory.emoji && activeCategory.color === p.color) ? '2px solid var(--t1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                    />
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Emoji</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  {EMOJIS.map(em => (
+                    <div key={em} 
+                      onClick={() => updateCategory(activeCategory.id, { emoji: em })}
+                      style={{ fontSize: 16, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 6, background: activeCategory.emoji === em ? 'var(--s3)' : 'transparent', border: activeCategory.emoji === em ? '1px solid var(--bd)' : '1px solid transparent' }}
+                    >
+                      {em}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+              {activeCategory?.emoji ? (
+                <span style={{ fontSize: 12 }}>{activeCategory.emoji}</span>
+              ) : (
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: activeCategory?.color || 'var(--t4)' }} />
+              )}
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--t2)' }}>
+                {activeCategory?.label || 'Unsorted'}
+              </span>
+            </div>
+            {activeCategory && (
+              <button 
+                onClick={() => { setEditId(activeCategory.id); setEditLabel(activeCategory.label) }}
+                style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--t4)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--t2)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--t4)'}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <path d="M11 2l3 3-9 9H2v-3l9-9z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* ── Tree (Only nodes of active workspace) ── */}
@@ -87,8 +188,16 @@ function PinnedGrid({ nodes, onFly, sessionHistory, restoreFromHistory, setCompo
   const pinnedNodes = nodes.filter(n => n.data?.pinned).slice(0, 8)
   const closedPinned = sessionHistory.filter(h => h.pinned).slice(0, 8 - pinnedNodes.length)
   
-  const slots = [...pinnedNodes, ...closedPinned.map(h => ({ ...h, isClosed: true }))]
-  while (slots.length < 8) slots.push(null)
+  const actualItems = [...pinnedNodes, ...closedPinned.map(h => ({ ...h, isClosed: true }))]
+  const itemCount = actualItems.length
+
+  // First row shown only when any tab is pinned
+  if (itemCount === 0) return null
+
+  // 2nd row shown only if 1st row is filled (4 slots)
+  const numSlots = itemCount >= 4 ? 8 : 4
+  const slots = [...actualItems]
+  while (slots.length < numSlots) slots.push(null)
 
   return (
     <div style={{

@@ -8,9 +8,10 @@ import GroupFrame        from '../Groups/GroupFrame'
 import CanvasContextMenu from './CanvasContextMenu'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import AICanvasNode from '../AI/AICanvasNode'
+import SettingsNode from '../Nodes/SettingsNode'
 import { normalizeUrl, titleFromUrl, faviconUrl } from '../../utils/urlUtils'
 
-const NODE_TYPES = { webNode: WebNode, ideNode: IDENode, groupFrame: GroupFrame, aiNode: AICanvasNode }
+const NODE_TYPES = { webNode: WebNode, ideNode: IDENode, groupFrame: GroupFrame, aiNode: AICanvasNode, settingsNode: SettingsNode }
 
 function CanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, viewport, setViewport,

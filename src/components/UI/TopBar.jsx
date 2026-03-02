@@ -11,7 +11,7 @@ const FILTERS = [
 ]
 
 export default function TopBar() {
-  const { filter, setFilter, nodes, theme, isSidebarOpen, toggleSidebar, addAICanvasNode, setSettingsOpen } = useWorkspaceStore()
+  const { filter, setFilter, nodes, theme, isSidebarOpen, toggleSidebar, addAICanvasNode, addSettingsNode, toggleTheme } = useWorkspaceStore()
   const rf        = useReactFlow()
   const { zoom }  = useViewport()
   const count     = nodes.filter(n => n.type === 'webNode').length
@@ -46,14 +46,22 @@ export default function TopBar() {
   }
 
   return (
-    <div style={{
+    <div className="titlebar-drag" style={{
       height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '0 14px', background: barBg, borderBottom: `1px solid ${barBorder}`,
       backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', zIndex: 1000,
     }}>
       {/* Left: Sidebar Toggle + Branding + AI Chat */}
       <LayoutGroup id="topbar-left">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} onMouseLeave={() => setHoveredBtn(null)}>
+        <div className="titlebar-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 12 }} onMouseLeave={() => setHoveredBtn(null)}>
+          
+          {/* ── Apple-style Window Controls ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginRight: 8, paddingLeft: 4 }}>
+            <WinCtrl color="#FF5F56" onClick={() => window.canvascape?.app.close()} symbol={<path d="M4 4l7 7M11 4l-7 7" stroke="rgba(0,0,0,0.5)" strokeWidth="1.4" strokeLinecap="round"/>} />
+            <WinCtrl color="#FFBD2E" onClick={() => window.canvascape?.app.minimize()} symbol={<path d="M3 7.5h9" stroke="rgba(0,0,0,0.5)" strokeWidth="1.4" strokeLinecap="round"/>} />
+            <WinCtrl color="#27C93F" onClick={() => window.canvascape?.app.maximize()} symbol={<path d="M3.5 4v7h8V4h-8zm2 2h4v3h-4V6z" fill="rgba(0,0,0,0.4)"/>} />
+          </div>
+
           <TBtn 
             onClick={toggleSidebar} 
             title={isSidebarOpen ? "Hide sidebar" : "Show sidebar"}
@@ -65,7 +73,7 @@ export default function TopBar() {
           </TBtn>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 4 }}>
-            <LogoMark onClick={() => setSettingsOpen(true)} />
+            <LogoMark onClick={() => addSettingsNode()} />
             <span style={{
               fontFamily: "'Syne', sans-serif", fontSize: 15, fontWeight: 700,
               color: 'var(--t1)', letterSpacing: '-0.03em',
@@ -108,11 +116,26 @@ export default function TopBar() {
             </span>
             AI Chat
           </motion.button>
+
+          <TBtn
+            onClick={toggleTheme}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            hovered={hoveredBtn === 'theme'}
+            onMouseEnter={() => setHoveredBtn('theme')}
+          >
+            {isDark ? (
+              <path d="M8 12a4 4 0 100-8 4 4 0 000 8zM8 1v1M8 14v1M3.05 3.05l.707.707M12.243 12.243l.707.707M1 8h1M14 8h1M3.05 12.95l.707-.707M12.243 3.757l.707-.707" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            ) : (
+              <path d="M12 9a6 6 0 11-9-9 7.5 7.5 0 009 9z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            )}
+          </TBtn>
+
+          <div style={{ width: 1, height: 16, background: isDark ? 'rgba(255,245,220,0.08)' : 'rgba(100,80,40,0.12)', margin: '0 2px' }}/>
         </div>
       </LayoutGroup>
 
       {/* Center: Filters */}
-      <div style={pillStyle}>
+      <div className="titlebar-no-drag" style={pillStyle}>
         <LayoutGroup id="topbar-filters">
           {FILTERS.map(f => {
             const isActive = filter === f.key
@@ -120,6 +143,7 @@ export default function TopBar() {
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
+                className="titlebar-no-drag"
                 style={{
                   position: 'relative',
                   padding: '4px 12px', borderRadius: 8, fontSize: 11.5, fontWeight: 600,
@@ -204,6 +228,27 @@ function TBtn({ onClick, title, hovered, onMouseEnter, children }) {
       )}
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none">{children}</svg>
     </motion.button>
+  )
+}
+
+function WinCtrl({ color, onClick, symbol }) {
+  const [h, setH] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      className="titlebar-no-drag"
+      style={{
+        width: 15, height: 15, borderRadius: '50%', background: color, border: 'none',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', padding: 0,
+      }}
+    >
+      <svg width="15" height="15" viewBox="0 0 14 14" fill="none" style={{ opacity: h ? 1 : 0, transition: 'opacity 120ms' }}>
+        {symbol}
+      </svg>
+    </button>
   )
 }
 

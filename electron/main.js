@@ -62,13 +62,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#0D0D0F',
-    titleBarStyle: 'hiddenInset',
-    frame: process.platform !== 'win32',
-    titleBarOverlay: process.platform === 'win32' ? {
-      color: '#09090C',
-      symbolColor: '#3A3750',
-      height: 38,
-    } : false,
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -277,3 +271,22 @@ ipcMain.handle('workspace:save', async (event, data) => {
 })
 
 ipcMain.handle('workspace:getPath', () => WORKSPACE_FILE)
+
+// ─── IPC: Window control ──────────────────────────────────────────────────────
+ipcMain.on('window:close', (event) => { 
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win) win.close()
+  else if (mainWindow) mainWindow.close()
+})
+ipcMain.on('window:minimize', (event) => { 
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win) win.minimize()
+  else if (mainWindow) mainWindow.minimize()
+})
+ipcMain.on('window:maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const target = win || mainWindow
+  if (!target) return
+  if (target.isMaximized()) target.unmaximize()
+  else target.maximize()
+})

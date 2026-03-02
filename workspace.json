@@ -1,9 +1,32 @@
 {
-  "nodes": [],
+  "nodes": [
+    {
+      "id": "settings_1772456007728",
+      "type": "settingsNode",
+      "position": {
+        "x": 357.4977892592515,
+        "y": 237.87498831946704
+      },
+      "data": {
+        "title": "Settings",
+        "createdAt": 1772456007728
+      },
+      "style": {
+        "width": 500,
+        "height": 600,
+        "zIndex": 101
+      },
+      "zIndex": 104,
+      "dragHandle": ".node-drag-handle",
+      "width": 500,
+      "height": 600,
+      "selected": true
+    }
+  ],
   "edges": [],
   "viewport": {
-    "x": 0,
-    "y": 240,
+    "x": 75,
+    "y": -200,
     "zoom": 1
   },
   "categories": [
@@ -11,23 +34,26 @@
       "id": "cat_work",
       "label": "Work",
       "color": "#A78BFA",
-      "bg": "rgba(167,139,250,0.08)"
+      "bg": "rgba(167,139,250,0.08)",
+      "emoji": "💼"
     },
     {
       "id": "cat_research",
       "label": "Research",
       "color": "#60A5FA",
-      "bg": "rgba(96,165,250,0.08)"
+      "bg": "rgba(96,165,250,0.08)",
+      "emoji": "🔬"
     },
     {
       "id": "cat_personal",
       "label": "Personal",
       "color": "#34D399",
-      "bg": "rgba(52,211,153,0.08)"
+      "bg": "rgba(52,211,153,0.08)",
+      "emoji": "🏠"
     }
   ],
   "activeCategoryId": "cat_work",
-  "theme": "dark",
+  "theme": "light",
   "sessionHistory": [],
   "aiProvider": {
     "active": "openai",
@@ -50,5 +76,5 @@
   },
   "aiConversations": [],
   "version": 3,
-  "savedAt": 1772454689222
+  "savedAt": 1772456065460
 }
