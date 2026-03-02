@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron')
+const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
@@ -51,12 +51,29 @@ function createWindow() {
 
   // ── Webview security hardening ────────────────────────────────────────────
   mainWindow.webContents.on('did-attach-webview', (event, webContents) => {
-    webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    webContents.setWindowOpenHandler(({ url }) => {
+      if (url?.startsWith('http://') || url?.startsWith('https://')) {
+        shell.openExternal(url).catch(() => {})
+      }
+      return { action: 'deny' }
+    })
 
     webContents.on('will-navigate', (e, url) => {
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // Keep navigation limited to web content plus about:blank transitional pages.
+      if (
+        !url.startsWith('http://') &&
+        !url.startsWith('https://') &&
+        url !== 'about:blank'
+      ) {
         e.preventDefault()
       }
+    })
+
+    webContents.on('did-fail-load', (_e, errorCode, _errorDescription, validatedURL, isMainFrame) => {
+      // Chromium ERR_ABORTED (-3) is expected during redirects and popup cancellations.
+      if (errorCode === -3) return
+      if (!isMainFrame) return
+      console.warn(`Webview load failed (${errorCode}) for ${validatedURL}`)
     })
   })
 }

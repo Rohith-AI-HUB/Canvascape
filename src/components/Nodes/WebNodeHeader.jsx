@@ -1,11 +1,11 @@
-import { useState, useRef, useCallback, memo } from 'react'
+import { useState, useRef, memo } from 'react'
 
 const WebNodeHeader = memo(function WebNodeHeader({
   id, title, url, favicon, isLoading, isActive,
   onNavigate, onClose, onBack, onForward, onReload,
 }) {
   const [editingUrl, setEditingUrl] = useState(false)
-  const [urlInput, setUrlInput] = useState('')
+  const [urlInput,   setUrlInput]   = useState('')
   const inputRef = useRef(null)
 
   const startEditing = () => {
@@ -20,7 +20,7 @@ const WebNodeHeader = memo(function WebNodeHeader({
   }
 
   const onKeyDown = (e) => {
-    if (e.key === 'Enter') commitUrl()
+    if (e.key === 'Enter')  commitUrl()
     if (e.key === 'Escape') setEditingUrl(false)
     e.stopPropagation()
   }
@@ -28,67 +28,92 @@ const WebNodeHeader = memo(function WebNodeHeader({
   const displayUrl = (() => {
     try {
       const u = new URL(url)
-      const p = u.pathname !== '/' ? u.pathname.slice(0, 24) + (u.pathname.length > 24 ? '…' : '') : ''
+      const p = u.pathname !== '/' ? u.pathname.slice(0, 22) + (u.pathname.length > 22 ? '…' : '') : ''
       return u.hostname + p
     } catch { return url || '' }
   })()
 
   return (
     <div
-      className="node-drag-handle flex items-center gap-1.5 px-2.5 py-2 select-none"
+      className="node-drag-handle"
       style={{
-        background: isActive ? '#F8F5FF' : '#FDFCFF',
-        borderBottom: '1px solid rgba(200,189,219,0.35)',
-        minHeight: 44,
-        cursor: 'grab',
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '0 10px',
+        background: isActive ? '#1C1C24' : '#141417',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        minHeight: 42, cursor: 'grab',
+        transition: 'background 0.2s ease',
       }}
     >
-      {/* Close button */}
-      <button
-        className="w-3 h-3 rounded-full flex-shrink-0"
-        style={{ background: '#F9A8B8', border: '1px solid rgba(0,0,0,0.06)' }}
-        onClick={(e) => { e.stopPropagation(); onClose() }}
-        title="Close"
-      />
+      {/* macOS-style traffic lights */}
+      <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+        <TrafficLight color="#FF5F57" hoverColor="#FF3B30" onClick={e => { e.stopPropagation(); onClose() }} title="Close"/>
+        <TrafficLight color="#FEBC2E" hoverColor="#FFA400" onClick={e => { e.stopPropagation() }} title="Minimize"/>
+        <TrafficLight color="#28C840" hoverColor="#00B800" onClick={e => { e.stopPropagation() }} title="Maximize"/>
+      </div>
 
       {/* Nav controls */}
-      <div className="flex items-center gap-0.5 ml-1 flex-shrink-0">
-        <NavBtn onClick={(e) => { e.stopPropagation(); onBack() }} title="Back">←</NavBtn>
-        <NavBtn onClick={(e) => { e.stopPropagation(); onForward() }} title="Forward">→</NavBtn>
-        <NavBtn onClick={(e) => { e.stopPropagation(); onReload() }} title="Reload">{isLoading ? '✕' : '↺'}</NavBtn>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 1, marginLeft: 4, flexShrink: 0 }}>
+        <NavBtn onClick={e => { e.stopPropagation(); onBack()    }} title="Back"   icon="←"/>
+        <NavBtn onClick={e => { e.stopPropagation(); onForward() }} title="Forward" icon="→"/>
+        <NavBtn
+          onClick={e => { e.stopPropagation(); onReload() }}
+          title={isLoading ? 'Stop' : 'Reload'}
+          icon={isLoading ? '✕' : '↺'}
+          spinning={isLoading}
+        />
       </div>
 
       {/* Favicon */}
-      {favicon ? (
-        <img src={favicon} className="w-4 h-4 rounded flex-shrink-0 ml-1" onError={(e) => { e.target.style.display = 'none' }} />
-      ) : (
-        <span className="w-4 h-4 flex-shrink-0 ml-1 text-xs flex items-center justify-center" style={{ color: '#C8BDDB' }}>🌐</span>
-      )}
+      <div style={{ flexShrink: 0, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {favicon
+          ? <img src={favicon} style={{ width: 14, height: 14, borderRadius: 3 }} onError={e => e.target.style.display = 'none'}/>
+          : <span style={{ fontSize: 12, color: '#3A3750' }}>🌐</span>
+        }
+      </div>
 
       {/* URL bar */}
-      <div className="flex-1 min-w-0 cursor-text" onClick={(e) => { e.stopPropagation(); startEditing() }}>
+      <div
+        className="flex-1 min-w-0"
+        style={{ cursor: 'text', flex: 1, minWidth: 0 }}
+        onClick={e => { e.stopPropagation(); startEditing() }}
+      >
         {editingUrl ? (
           <input
             ref={inputRef}
             value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
+            onChange={e => setUrlInput(e.target.value)}
             onBlur={commitUrl}
             onKeyDown={onKeyDown}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full text-xs px-2 py-1 rounded-md outline-none"
+            onClick={e => e.stopPropagation()}
             style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 11, color: '#3D3552',
-              background: 'rgba(124,111,205,0.08)',
-              border: '1.5px solid rgba(124,111,205,0.3)',
+              width: '100%', padding: '4px 10px', borderRadius: 7, outline: 'none',
+              fontFamily: "'JetBrains Mono', 'Consolas', monospace",
+              fontSize: 11, color: '#E8E6F0',
+              background: 'rgba(255,255,255,0.07)',
+              border: '1.5px solid rgba(139,92,246,0.45)',
+              boxShadow: '0 0 0 3px rgba(139,92,246,0.1)',
             }}
             autoFocus
           />
         ) : (
-          <div className="px-2 py-1 rounded-md truncate" style={{ color: '#9B91B8', fontSize: 12 }} title={url}>
-            {title && title !== displayUrl ? (
-              <span style={{ color: '#3D3552', fontWeight: 500 }}>{title}</span>
-            ) : displayUrl}
+          <div
+            style={{
+              padding: '4px 10px', borderRadius: 7,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              fontSize: 12, color: '#5C5970',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              transition: 'background 0.15s',
+            }}
+            title={url}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+          >
+            {title && title !== displayUrl
+              ? <><span style={{ color: '#9C99AC', fontWeight: 500 }}>{title}</span><span style={{ color: '#3A3750', marginLeft: 6, fontSize: 11 }}>{displayUrl}</span></>
+              : <span style={{ color: '#6B6880' }}>{displayUrl}</span>
+            }
           </div>
         )}
       </div>
@@ -96,16 +121,36 @@ const WebNodeHeader = memo(function WebNodeHeader({
   )
 })
 
-function NavBtn({ onClick, title, children }) {
+function TrafficLight({ color, hoverColor, onClick, title }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        width: 12, height: 12, borderRadius: '50%',
+        background: color, border: 'none', cursor: 'pointer', padding: 0,
+        flexShrink: 0, transition: 'filter 0.15s, transform 0.1s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.15)'; e.currentTarget.style.transform = 'scale(1.1)' }}
+      onMouseLeave={e => { e.currentTarget.style.filter = ''; e.currentTarget.style.transform = '' }}
+    />
+  )
+}
+
+function NavBtn({ onClick, title, icon }) {
   return (
     <button
       onClick={onClick} title={title}
-      className="w-6 h-6 rounded-md flex items-center justify-center text-sm"
-      style={{ color: '#B8ADCC' }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(124,111,205,0.1)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+      style={{
+        width: 26, height: 26, borderRadius: 7,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'transparent', border: 'none', cursor: 'pointer',
+        color: '#3A3750', fontSize: 13, transition: 'all 0.12s', fontFamily: 'inherit',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#9C99AC' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#3A3750' }}
     >
-      {children}
+      {icon}
     </button>
   )
 }
