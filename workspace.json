@@ -2,9 +2,9 @@
   "nodes": [],
   "edges": [],
   "viewport": {
-    "x": 115.93580748189504,
-    "y": -498.4432350656205,
-    "zoom": 1.3188405797101455
+    "x": 343.1746995357897,
+    "y": 297.8027000643711,
+    "zoom": 0.6594202898550725
   },
   "categories": [
     {
@@ -24,15 +24,103 @@
       "label": "Personal",
       "color": "#34D399",
       "bg": "rgba(52,211,153,0.08)"
-    },
-    {
-      "id": "cat_1772435794773",
-      "label": "Msrit",
-      "color": "#F97316",
-      "bg": "rgba(249,115,22,0.08)"
     }
   ],
   "theme": "light",
-  "version": 2,
-  "savedAt": 1772437046590
+  "sessionHistory": [
+    {
+      "id": "hist_1772445459698_qu3",
+      "url": "https://www.google.com/",
+      "title": "Google",
+      "favicon": "https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico",
+      "note": "",
+      "closedAt": 1772445459698
+    },
+    {
+      "id": "hist_1772445417248_8gf",
+      "url": "https://x.com/i/flow/login",
+      "title": "Log in to X / X",
+      "favicon": "https://abs.twimg.com/favicons/twitter.3.ico",
+      "note": "",
+      "closedAt": 1772445417248
+    },
+    {
+      "id": "hist_1772444382758_4hi",
+      "url": "https://www.google.com/",
+      "title": "Google",
+      "favicon": "https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico",
+      "note": "",
+      "closedAt": 1772444382758
+    }
+  ],
+  "aiProvider": {
+    "name": "openai",
+    "model": "gpt-4o",
+    "apiKey": "",
+    "baseUrl": "http://localhost:11434",
+    "active": "ollama",
+    "ollama": {
+      "model": "gpt-oss:120b-cloud"
+    }
+  },
+  "aiConversations": [
+    {
+      "id": "conv_1772444974537",
+      "title": "hi",
+      "messages": [
+        {
+          "id": "m_1772445011803",
+          "role": "user",
+          "content": "hi",
+          "ts": 1772445011803
+        },
+        {
+          "id": "m_1772445011805",
+          "role": "assistant",
+          "content": "⚠️ Ollama 404: Not Found",
+          "ts": 1772445011804
+        },
+        {
+          "id": "m_1772445268557",
+          "role": "user",
+          "content": "hi",
+          "ts": 1772445268557
+        },
+        {
+          "id": "m_1772445268558",
+          "role": "assistant",
+          "content": "⚠️ model 'llama3.2' not found",
+          "ts": 1772445268557
+        },
+        {
+          "id": "m_1772445491793",
+          "role": "user",
+          "content": "Hi",
+          "ts": 1772445491793
+        },
+        {
+          "id": "m_1772445491794",
+          "role": "assistant",
+          "content": "Hello! How can I help you today?",
+          "ts": 1772445491793
+        },
+        {
+          "id": "m_1772445507172",
+          "role": "user",
+          "content": "Can you create a webpage",
+          "ts": 1772445507172
+        },
+        {
+          "id": "m_1772445507173",
+          "role": "assistant",
+          "content": "Absolutely! I can put together a complete HTML + CSS (and a little JavaScript, if you’d like) for you.  \nBelow is a **fully functional, self‑contained web page** that you can copy into a file called `index.html` and open in any browser.\n\n---\n\n## 📄 Example: A Simple Personal Portfolio Page\n\n```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>My Portfolio</title>\n\n    <!-- ---------- CSS ---------- -->\n    <style>\n        /* Reset & basic typography */\n        *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }\n        body {\n            font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n            line-height: 1.6;\n            background: #f7fafc;\n            color: #333;\n        }\n        a { color: #1e90ff; text-decoration: none; }\n        a:hover { text-decoration: underline; }\n\n        /* Layout */\n        header, footer { background:#1e90ff; color:#fff; padding:1rem; text-align:center; }\n        main { max-width:960px; margin:2rem auto; padding:0 1rem; }\n\n        /* Hero section */\n        .hero {\n            background: url('https://picsum.photos/seed/hero/1600/500') center/cover no-repeat;\n            color:#fff;\n            text-align:center;\n            padding:6rem 2rem;\n            position:relative;\n        }\n        .hero::after {\n            content:\"\";\n            position:absolute; inset:0;\n            background:rgba(0,0,0,0.45);\n        }\n        .hero h1 { position:relative; font-size:3rem; margin-bottom:.5rem; }\n        .hero p { position:relative; font-size:1.2rem; }\n\n        /* About & Projects */\n        .section { margin:4rem 0; }\n        .section h2 { margin-bottom:1rem; border-left:4px solid #1e90ff; padding-left:.5rem; }\n        .cards { display:grid; gap:1.5rem; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }\n        .card {\n            background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.1);\n            transition:transform .2s, box-shadow .2s;\n        }\n        .card:hover { transform:translateY(-4px); box-shadow:0 4px 12px rgba(0,0,0,.15); }\n        .card img { width:100%; height:150px; object-fit:cover; }\n        .card-content { padding:1rem; }\n        .card-content h3 { margin-bottom:.5rem; }\n        .card-content p { font-size:.9rem; color:#555; }\n\n        /* Footer */\n        footer p { margin:0; font-size:.9rem; }\n        .socials a { margin:0 .5rem; font-size:1.2rem; color:#fff; }\n    </style>\n</head>\n<body>\n\n    <!-- ---------- Header ---------- -->\n    <header>\n        <h1>My Portfolio</h1>\n    </header>\n\n    <!-- ---------- Hero ---------- -->\n    <section class=\"hero\">\n        <h1>Hello, I’m Alex</h1>\n        <p>Front‑End Developer • UI/UX Enthusiast • Open‑Source Contributor</p>\n    </section>\n\n    <main>\n\n        <!-- ---------- About ---------- -->\n        <section class=\"section\" id=\"about\">\n            <h2>About Me</h2>\n            <p>\n                I create responsive, accessible, and performant web experiences. \n                When I’m not coding, I enjoy hiking, photography, and learning new languages.\n            </p>\n        </section>\n\n        <!-- ---------- Projects ---------- -->\n        <section class=\"section\" id=\"projects\">\n            <h2>Projects</h2>\n            <div class=\"cards\">\n                <!-- Project Card 1 -->\n                <div class=\"card\">\n                    <img src=\"https://picsum.photos/seed/project1/400/200\" alt=\"Project 1 screenshot\">\n                    <div class=\"card-content\">\n                        <h3>Portfolio Website</h3>\n                        <p>A personal site built with HTML, CSS Grid, and a bit of JavaScript.</p>\n                        <a href=\"#\">View Demo →</a>\n                    </div>\n                </div>\n\n                <!-- Project Card 2 -->\n                <div class=\"card\">\n                    <img src=\"https://picsum.photos/seed/project2/400/200\" alt=\"Project 2 screenshot\">\n                    <div class=\"card-content\">\n                        <h3>Task Tracker</h3>\n                        <p>A responsive to‑do list app using React & localStorage.</p>\n                        <a href=\"#\">View Demo →</a>\n                    </div>\n                </div>\n\n                <!-- Project Card 3 -->\n                <div class=\"card\">\n                    <img src=\"https://picsum.photos/seed/project3/400/200\" alt=\"Project 3 screenshot\">\n                    <div class=\"card-content\">\n                        <h3>Weather Dashboard</h3>\n                        <p>Live weather data from OpenWeatherMap presented with D3 visualizations.</p>\n                        <a href=\"#\">View Demo →</a>\n                    </div>\n                </div>\n            </div>\n        </section>\n\n        <!-- ---------- Contact ---------- -->\n        <section class=\"section\" id=\"contact\">\n            <h2>Get In Touch</h2>\n            <p>\n                Feel free to reach out via <a href=\"mailto:alex@example.com\">email</a> or connect on social media.\n            </p>\n        </section>\n\n    </main>\n\n    <!-- ---------- Footer ---------- -->\n    <footer>\n        <p>© 2024 Alex Smith — All Rights Reserved</p>\n        <div class=\"socials\">\n            <a href=\"#\" aria-label=\"GitHub\">🐙</a>\n            <a href=\"#\" aria-label=\"LinkedIn\">🔗</a>\n            <a href=\"#\" aria-label=\"Twitter\">🐦</a>\n        </div>\n    </footer>\n\n</body>\n</html>\n```\n\n### How to Use It\n\n1. **Create a file** called `index.html`.\n2. **Copy the code above** into that file and save it.\n3. **Open `index.html`** in any web browser – you’ll see a neat, responsive portfolio page.\n\n### Customizing the Page\n\n| What you might want to change | Where to edit |\n|------------------------------|----------------|\n| **Page title** | `<title>` in `<head>` |\n| **Your name / headline** | Inside `.hero h1` |\n| **Tagline / short description** | `.hero p` |\n| **About text** | `#about` section |\n| **Project cards** | Duplicate or edit the `.card` blocks inside `#projects` |\n| **Images** | Replace the `src` URLs (`https://picsum.photos/...`) with your own image links |\n| **Contact email / links** | In the `#contact` section and footer |\n| **Colors** | Edit the hex values `#1e90ff` (primary) and the background colors in the CSS block |\n\nIf you need a different layout (e.g., a blog, a landing page, an e‑commerce product grid) or want to add interactivity with JavaScript, just let me know—happy to tailor it further! 🚀",
+          "ts": 1772445507172
+        }
+      ],
+      "createdAt": 1772444974537,
+      "updatedAt": 1772445524019
+    }
+  ],
+  "version": 3,
+  "savedAt": 1772445573954
 }

@@ -28,7 +28,10 @@ const _save = debounce(async (state) => {
       viewport: state.viewport,
       categories: state.categories,
       theme: state.theme,
-      version: 2,
+      sessionHistory:   state.sessionHistory,
+      aiProvider:       state.aiProvider,
+      aiConversations:  state.aiConversations,
+      version: 3,
       savedAt: Date.now(),
     })
   } catch (e) { console.warn('Save failed', e) }
@@ -46,13 +49,76 @@ export const useWorkspaceStore = create((set, get) => ({
   filter:          'all',
   isSidebarOpen:   true,
   isComposerOpen:  false,
-  theme:           'dark',   // 'dark' | 'light'
+  isCommandOpen:   false,
+  isAIPanelOpen:   false,
+  theme:           'dark',
+
+  // ── AI state ────────────────────────────────────────────────────────────────
+  aiConversations: [],  // [{ id, title, messages:[{id,role,content,ts}], createdAt, updatedAt }]
+  aiCurrentId:     null,
+  aiContextEnabled: true,
+  aiProvider: {
+    active:    'openai',
+    openai:    { apiKey: '', model: 'gpt-4o' },
+    anthropic: { apiKey: '', model: 'claude-opus-4-5' },
+    gemini:    { apiKey: '', model: 'gemini-2.0-flash' },
+    ollama:    { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
+  },
+
+  setAIProvider:   (patch) => { set((s) => ({ aiProvider: { ...s.aiProvider, ...patch } })); _save(get()) },
+  setAIContextEnabled: (val) => set({ aiContextEnabled: val }),
+
+  aiNewChat: () => {
+    const id = `conv_${Date.now()}`
+    set((s) => ({ aiConversations: [{ id, title: 'New chat', messages: [], createdAt: Date.now(), updatedAt: Date.now() }, ...s.aiConversations], aiCurrentId: id }))
+  },
+  aiSelectConv: (id) => set({ aiCurrentId: id }),
+  aiDeleteConv: (id) => set((s) => ({
+    aiConversations: s.aiConversations.filter(c => c.id !== id),
+    aiCurrentId: s.aiCurrentId === id ? (s.aiConversations.find(c => c.id !== id)?.id ?? null) : s.aiCurrentId,
+  })),
+  aiCurrentMessages: () => {
+    const s = get()
+    return s.aiConversations.find(c => c.id === s.aiCurrentId)?.messages ?? []
+  },
+  aiPushMessage: (msg) => {
+    set((s) => ({
+      aiConversations: s.aiConversations.map(c => {
+        if (c.id !== s.aiCurrentId) return c
+        const msgs = [...c.messages, msg]
+        const title = c.title === 'New chat' && msg.role === 'user'
+          ? msg.content.slice(0, 52) + (msg.content.length > 52 ? '…' : '') : c.title
+        return { ...c, messages: msgs, title, updatedAt: Date.now() }
+      })
+    }))
+    _save(get())
+  },
+  aiUpdateLastMessage: (content) => {
+    set((s) => ({
+      aiConversations: s.aiConversations.map(c => {
+        if (c.id !== s.aiCurrentId || !c.messages.length) return c
+        const msgs = [...c.messages]
+        msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], content }
+        return { ...c, messages: msgs, updatedAt: Date.now() }
+      })
+    }))
+  },
+  aiClearCurrent: () => {
+    set((s) => ({
+      aiConversations: s.aiConversations.map(c =>
+        c.id === s.aiCurrentId ? { ...c, messages: [], title: 'New chat', updatedAt: Date.now() } : c
+      )
+    }))
+    _save(get())
+  },
+
+  // Session history — tracks closed web nodes for restore
+  sessionHistory: [], // [{ id, url, title, favicon, note, closedAt }]
 
   // ── ReactFlow wiring ────────────────────────────────────────────────────────
   onNodesChange: (changes) => {
     set((s) => {
       const updated = applyNodeChanges(changes, s.nodes)
-      // Re-apply our zIndex after ReactFlow processes changes (it can strip it)
       const zMap = Object.fromEntries(s.nodes.map(n => [n.id, n.zIndex]))
       return { nodes: updated.map(n => zMap[n.id] != null ? { ...n, zIndex: zMap[n.id] } : n) }
     })
@@ -83,17 +149,47 @@ export const useWorkspaceStore = create((set, get) => ({
       type: 'webNode',
       position: pos,
       data: {
-        url:        url     ?? 'https://www.google.com',
-        title:      title   ?? 'New Tab',
-        favicon:    favicon ?? null,
-        isLoading:  true,
-        categoryId: categoryId ?? null,
-        pinned:     false,
-        minimized:  false,
-        createdAt:  Date.now(),
+        url:          url     ?? 'https://www.google.com',
+        title:        title   ?? 'New Tab',
+        favicon:      favicon ?? null,
+        isLoading:    true,
+        categoryId:   categoryId ?? null,
+        pinned:       false,
+        minimized:    false,
+        createdAt:    Date.now(),
+        note:         '',
+        isNoteOpen:   false,
+        // Tab stack — each entry: { url, title, favicon }
+        tabs:         [{ url: url ?? 'https://www.google.com', title: title ?? 'New Tab', favicon: favicon ?? null }],
+        activeTabIdx: 0,
       },
       style:      { width: 680, height: 480, zIndex: z },
       zIndex:     z,
+      dragHandle: '.node-drag-handle',
+    }
+    set((s) => ({ nodes: [...s.nodes, node], activeNodeId: id }))
+    _save(get())
+    return id
+  },
+
+  // ── Add IDE node (code + live preview) ──────────────────────────────────────
+  addIdeNode: ({ title, html, position, categoryId } = {}) => {
+    const id = `ide_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const pos = position ?? { x: 160 + Math.random() * 280, y: 90 + Math.random() * 180 }
+    const z = nextZ()
+    const node = {
+      id,
+      type: 'ideNode',
+      position: pos,
+      data: {
+        title: title ?? 'Live IDE Preview',
+        code: html ?? '<!doctype html>\n<html>\n  <head><meta charset="utf-8" /><title>Live IDE</title></head>\n  <body><h1>Hello from Canvascape</h1></body>\n</html>',
+        categoryId: categoryId ?? null,
+        createdAt: Date.now(),
+        aiGenerated: true,
+      },
+      style: { width: 760, height: 500, zIndex: z },
+      zIndex: z,
       dragHandle: '.node-drag-handle',
     }
     set((s) => ({ nodes: [...s.nodes, node], activeNodeId: id }))
@@ -129,21 +225,52 @@ export const useWorkspaceStore = create((set, get) => ({
     set((s) => ({ nodes: s.nodes.map((n) => n.id === id ? { ...n, style: { ...n.style, width: Math.max(320, w), height: Math.max(240, h) } } : n) }))
     _save(get())
   },
+
+  // removeNode — pushes to session history if it's a web node
   removeNode: (id) => {
-    set((s) => ({ nodes: s.nodes.filter((n) => n.id !== id), activeNodeId: s.activeNodeId === id ? null : s.activeNodeId }))
+    const node = get().nodes.find((n) => n.id === id)
+    if (node?.type === 'webNode') {
+      const histEntry = {
+        id:       `hist_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+        url:      node.data.url,
+        title:    node.data.title,
+        favicon:  node.data.favicon,
+        note:     node.data.note || '',
+        closedAt: Date.now(),
+      }
+      set((s) => ({
+        sessionHistory: [histEntry, ...s.sessionHistory].slice(0, 40),
+        nodes:          s.nodes.filter((n) => n.id !== id),
+        activeNodeId:   s.activeNodeId === id ? null : s.activeNodeId,
+      }))
+    } else {
+      set((s) => ({
+        nodes:        s.nodes.filter((n) => n.id !== id),
+        activeNodeId: s.activeNodeId === id ? null : s.activeNodeId,
+      }))
+    }
     _save(get())
   },
+
   duplicateNode: (id) => {
     const src = get().nodes.find((n) => n.id === id)
     if (!src) return
-    const dup = { ...src, id: `web_${Date.now()}`, position: { x: src.position.x + 40, y: src.position.y + 40 }, zIndex: nextZ(), data: { ...src.data, createdAt: Date.now(), pinned: false, minimized: false } }
+    const dup = {
+      ...src,
+      id:       `web_${Date.now()}`,
+      position: { x: src.position.x + 40, y: src.position.y + 40 },
+      zIndex:   nextZ(),
+      data:     { ...src.data, createdAt: Date.now(), pinned: false, minimized: false, note: '', isNoteOpen: false },
+    }
     set((s) => ({ nodes: [...s.nodes, dup] }))
     _save(get())
   },
+
   togglePin: (id) => {
     set((s) => ({ nodes: s.nodes.map((n) => n.id === id ? { ...n, data: { ...n.data, pinned: !n.data.pinned } } : n) }))
     _save(get())
   },
+
   toggleMinimize: (id) => {
     const z = nextZ()
     set((s) => ({
@@ -171,8 +298,84 @@ export const useWorkspaceStore = create((set, get) => ({
     }))
     _save(get())
   },
+
   assignCategory: (nodeId, categoryId) => {
     set((s) => ({ nodes: s.nodes.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, categoryId } } : n) }))
+    _save(get())
+  },
+
+  // ── Notes ───────────────────────────────────────────────────────────────────
+  toggleNotePanel: (id) => {
+    set((s) => ({
+      nodes: s.nodes.map((n) => n.id === id ? { ...n, data: { ...n.data, isNoteOpen: !n.data.isNoteOpen } } : n)
+    }))
+  },
+  updateNote: (id, note) => {
+    set((s) => ({ nodes: s.nodes.map((n) => n.id === id ? { ...n, data: { ...n.data, note } } : n) }))
+    _save(get())
+  },
+
+  // ── Tab stacks ──────────────────────────────────────────────────────────────
+  addTab: (nodeId, url, title, favicon) => {
+    const node = get().nodes.find((n) => n.id === nodeId)
+    if (!node) return
+    const existingTabs = node.data.tabs?.length
+      ? node.data.tabs
+      : [{ url: node.data.url, title: node.data.title, favicon: node.data.favicon }]
+    const newTab   = { url, title: title || url, favicon: favicon || null }
+    const newTabs  = [...existingTabs, newTab]
+    const newIdx   = newTabs.length - 1
+    set((s) => ({
+      nodes: s.nodes.map((n) => n.id === nodeId
+        ? { ...n, data: { ...n.data, tabs: newTabs, activeTabIdx: newIdx, url, title: newTab.title, favicon: newTab.favicon, isLoading: true } }
+        : n)
+    }))
+    _save(get())
+  },
+
+  switchTab: (nodeId, tabIdx) => {
+    const node = get().nodes.find((n) => n.id === nodeId)
+    if (!node) return
+    // Save current URL into current tab slot before switching
+    const tabs = node.data.tabs?.length
+      ? [...node.data.tabs]
+      : [{ url: node.data.url, title: node.data.title, favicon: node.data.favicon }]
+    const curIdx = node.data.activeTabIdx ?? 0
+    tabs[curIdx] = { ...tabs[curIdx], url: node.data.url, title: node.data.title, favicon: node.data.favicon }
+    const target = tabs[tabIdx]
+    if (!target) return
+    set((s) => ({
+      nodes: s.nodes.map((n) => n.id === nodeId
+        ? { ...n, data: { ...n.data, tabs, activeTabIdx: tabIdx, url: target.url, title: target.title, favicon: target.favicon, isLoading: true } }
+        : n)
+    }))
+    _save(get())
+  },
+
+  closeTab: (nodeId, tabIdx) => {
+    const node = get().nodes.find((n) => n.id === nodeId)
+    if (!node) return
+    const tabs = node.data.tabs?.length
+      ? node.data.tabs
+      : [{ url: node.data.url, title: node.data.title, favicon: node.data.favicon }]
+    if (tabs.length <= 1) { get().removeNode(nodeId); return }
+    const newTabs  = tabs.filter((_, i) => i !== tabIdx)
+    const newActive = Math.min(tabIdx, newTabs.length - 1)
+    const target   = newTabs[newActive]
+    set((s) => ({
+      nodes: s.nodes.map((n) => n.id === nodeId
+        ? { ...n, data: { ...n.data, tabs: newTabs, activeTabIdx: newActive, url: target.url, title: target.title, favicon: target.favicon, isLoading: true } }
+        : n)
+    }))
+    _save(get())
+  },
+
+  // ── Session history ─────────────────────────────────────────────────────────
+  clearHistory: () => { set({ sessionHistory: [] }); _save(get()) },
+  restoreFromHistory: (histEntry) => {
+    get().addWebNode({ url: histEntry.url, title: histEntry.title, favicon: histEntry.favicon })
+    // Remove from history after restore
+    set((s) => ({ sessionHistory: s.sessionHistory.filter((h) => h.id !== histEntry.id) }))
     _save(get())
   },
 
@@ -197,9 +400,12 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   // ── UI state ────────────────────────────────────────────────────────────────
-  setFilter:       (f)   => set({ filter: f }),
-  toggleSidebar:   ()    => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
-  setComposerOpen: (val) => set({ isComposerOpen: val }),
+  setFilter:        (f)   => set({ filter: f }),
+  toggleSidebar:    ()    => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
+  setComposerOpen:  (val) => set({ isComposerOpen: val }),
+  setCommandOpen:   (val) => set({ isCommandOpen: val }),
+  toggleAIPanel:    ()    => set((s) => ({ isAIPanelOpen: !s.isAIPanelOpen })),
+  setAIPanelOpen:   (val) => set({ isAIPanelOpen: val }),
   toggleTheme:     ()    => {
     set((s) => {
       const next = s.theme === 'dark' ? 'light' : 'dark'
@@ -219,10 +425,14 @@ export const useWorkspaceStore = create((set, get) => ({
         const theme = saved.theme ?? 'dark'
         document.documentElement.setAttribute('data-theme', theme)
         set({
-          nodes:      saved.nodes,
-          edges:      saved.edges ?? [],
-          viewport:   saved.viewport ?? { x: 0, y: 0, zoom: 1 },
-          categories: saved.categories ?? DEFAULT_CATEGORIES,
+          nodes:          saved.nodes,
+          edges:          saved.edges ?? [],
+          viewport:       saved.viewport ?? { x: 0, y: 0, zoom: 1 },
+          categories:     saved.categories ?? DEFAULT_CATEGORIES,
+          sessionHistory: saved.sessionHistory ?? [],
+          aiProvider:       saved.aiProvider       ?? get().aiProvider,
+          aiConversations:  saved.aiConversations  ?? [],
+          aiCurrentId:      saved.aiConversations?.[0]?.id ?? null,
           theme,
         })
       }

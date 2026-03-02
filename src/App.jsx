@@ -5,6 +5,8 @@ import CanvasWorkspace from './components/Canvas/CanvasWorkspace'
 import CanvasSidebar   from './components/Sidebar/CanvasSidebar'
 import BottomBar       from './components/UI/BottomBar'
 import LoadingScreen   from './components/UI/LoadingScreen'
+import CommandPalette  from './components/UI/CommandPalette'
+import AIPanel        from './components/AI/AIPanel'
 
 export default function App() {
   const { isLoading, loadWorkspace, isSidebarOpen, theme } = useWorkspaceStore()
@@ -17,13 +19,26 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e) => {
+      const { setComposerOpen, toggleSidebar, setCommandOpen } = useWorkspaceStore.getState()
+      // Ctrl+N — open composer
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
         e.preventDefault()
-        useWorkspaceStore.getState().setComposerOpen(true)
+        setComposerOpen(true)
       }
+      // Ctrl+\ — toggle sidebar
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
         e.preventDefault()
-        useWorkspaceStore.getState().toggleSidebar()
+        toggleSidebar()
+      }
+      // Ctrl+K — command palette (handled in CommandPalette too, but guard here for safety)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setCommandOpen(true)
+      }
+      // Ctrl+Shift+A — AI panel
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'a') {
+        e.preventDefault()
+        useWorkspaceStore.getState().toggleAIPanel()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -65,6 +80,10 @@ export default function App() {
           <BottomBar />
         </div>
       )}
+
+      {/* Global overlays — mounted outside the loading gate so shortcuts work immediately */}
+      <CommandPalette />
+      <AIPanel />
     </div>
   )
 }
