@@ -24,8 +24,8 @@ const IDENode = memo(function IDENode({ id, data }) {
         boxShadow: isActive ? 'var(--sh-active)' : 'var(--sh-card)',
       }}>
         <NodeResizer
-          minWidth={460}
-          minHeight={300}
+          minWidth={640}
+          minHeight={480}
           isVisible={isActive}
           onResizeEnd={(_, p) => resizeNode(id, p.width, p.height)}
           lineStyle={{ borderColor: 'var(--a)' }}

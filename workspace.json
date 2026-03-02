@@ -81,11 +81,11 @@
         "height": 520,
         "zIndex": 193
       },
-      "zIndex": 198,
+      "zIndex": 205,
       "dragHandle": ".node-drag-handle",
       "width": 360,
       "height": 520,
-      "selected": true,
+      "selected": false,
       "positionAbsolute": {
         "x": 855.3801840932023,
         "y": -3774.9174446181173
@@ -95,9 +95,9 @@
   ],
   "edges": [],
   "viewport": {
-    "x": -66.87479886515246,
-    "y": 4369.59324450039,
-    "zoom": 1.054532091550474
+    "x": 274.75486176785165,
+    "y": 2776.4192387155044,
+    "zoom": 0.6102616270546725
   },
   "categories": [
     {
@@ -215,5 +215,5 @@
     }
   ],
   "version": 3,
-  "savedAt": 1772448057067
+  "savedAt": 1772448677754
 }

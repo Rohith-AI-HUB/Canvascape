@@ -163,7 +163,7 @@ export const useWorkspaceStore = create((set, get) => ({
         tabs:         [{ url: url ?? 'https://www.google.com', title: title ?? 'New Tab', favicon: favicon ?? null }],
         activeTabIdx: 0,
       },
-      style:      { width: 680, height: 480, zIndex: z },
+      style:      { width: 1280, height: 800, zIndex: z },
       zIndex:     z,
       dragHandle: '.node-drag-handle',
     }
@@ -188,7 +188,7 @@ export const useWorkspaceStore = create((set, get) => ({
         createdAt: Date.now(),
         aiGenerated: true,
       },
-      style: { width: 760, height: 500, zIndex: z },
+      style: { width: 1280, height: 800, zIndex: z },
       zIndex: z,
       dragHandle: '.node-drag-handle',
     }
@@ -241,7 +241,7 @@ export const useWorkspaceStore = create((set, get) => ({
     _save(get())
   },
   resizeNode: (id, w, h) => {
-    set((s) => ({ nodes: s.nodes.map((n) => n.id === id ? { ...n, style: { ...n.style, width: Math.max(320, w), height: Math.max(240, h) } } : n) }))
+    set((s) => ({ nodes: s.nodes.map((n) => n.id === id ? { ...n, style: { ...n.style, width: Math.max(1280, w), height: Math.max(800, h) } } : n) }))
     _save(get())
   },
 
@@ -309,8 +309,8 @@ export const useWorkspaceStore = create((set, get) => ({
           style: {
             ...n.style,
             zIndex: z,
-            width:  willMinimize ? 160 : (n.data._fullWidth  ?? 680),
-            height: willMinimize ? 200 : (n.data._fullHeight ?? 480),
+            width:  willMinimize ? 160 : Math.max(n.data._fullWidth  ?? 1280, 1280),
+            height: willMinimize ? 200 : Math.max(n.data._fullHeight ?? 800,  800),
           },
         }
       }),

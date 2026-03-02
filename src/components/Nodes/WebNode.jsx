@@ -179,7 +179,7 @@ const WebNode = memo(function WebNode({ id, data }) {
         transition: 'box-shadow 0.2s ease',
       }}>
         <NodeResizer
-          minWidth={340} minHeight={260}
+          minWidth={1280} minHeight={800}
           isVisible={isActive && !isMinimized}
           onResizeEnd={onResizeEnd}
           lineStyle={{ borderColor: 'var(--a)' }}
@@ -199,7 +199,8 @@ const WebNode = memo(function WebNode({ id, data }) {
           {data.isLoading && <ProgressBar />}
           <webview ref={webviewRef} style={{ width: '100%', height: '100%' }}
             partition="persist:canvascape"
-            webpreferences="allowRunningInsecureContent=false, javascript=yes, images=yes"/>
+            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            webpreferences="allowRunningInsecureContent=false, javascript=yes, images=yes, defaultFontSize=16, defaultMonospaceFontSize=14, minimumFontSize=12, minimumLogicalFontSize=12"/>
         </div>
 
         {/* ── Notes panel ── */}

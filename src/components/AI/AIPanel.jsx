@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { streamAI, MODELS } from './useAIStream'
+import MarkdownMessage from './MarkdownMessage'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider config
@@ -490,7 +491,7 @@ function MessageBubble({ msg, isDark, isStreaming }) {
           : `1px solid ${isDark ? 'rgba(255,245,220,0.07)' : 'rgba(100,80,40,0.1)'}`,
       }}>
         {msg.content
-          ? <MsgContent content={msg.content}/>
+          ? <MarkdownMessage content={msg.content}/>
           : isStreaming
             ? <ThinkDots/>
             : null
@@ -510,40 +511,6 @@ function MessageBubble({ msg, isDark, isStreaming }) {
       )}
     </motion.div>
   )
-}
-
-// Lightweight markdown renderer
-function MsgContent({ content }) {
-  const lines = content.split('\n')
-  const out = []
-  let codeLines = [], inCode = false, codeLang = ''
-
-  lines.forEach((line, i) => {
-    if (line.startsWith('```')) {
-      if (!inCode) { inCode = true; codeLang = line.slice(3).trim(); codeLines = [] }
-      else {
-        inCode = false
-        out.push(
-          <div key={`cb${i}`} style={{ borderRadius: 9, overflow: 'hidden', margin: '6px 0', border: '1px solid rgba(255,245,220,0.08)' }}>
-            {codeLang && <div style={{ padding: '4px 10px', background: 'rgba(0,0,0,0.25)', fontSize: 10, color: 'var(--t3)', fontFamily: "'DM Mono', monospace" }}>{codeLang}</div>}
-            <pre style={{ margin: 0, padding: '8px 10px', background: 'rgba(0,0,0,0.2)', fontSize: 11.5, fontFamily: "'DM Mono', monospace", color: 'var(--t1)', overflowX: 'auto', lineHeight: 1.55 }}>{codeLines.join('\n')}</pre>
-          </div>
-        )
-      }
-      return
-    }
-    if (inCode) { codeLines.push(line); return }
-    out.push(<p key={i} style={{ margin: '2px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--t1)' }}>{renderInline(line)}</p>)
-  })
-  return <>{out}</>
-}
-
-function renderInline(txt) {
-  return txt.split(/(`[^`]+`|\*\*[^*]+\*\*)/).map((s, i) => {
-    if (s.startsWith('`') && s.endsWith('`')) return <code key={i} style={{ fontFamily: "'DM Mono', monospace", fontSize: 11.5, padding: '1px 5px', borderRadius: 4, background: 'rgba(245,158,11,0.12)', color: 'var(--a)' }}>{s.slice(1,-1)}</code>
-    if (s.startsWith('**') && s.endsWith('**')) return <strong key={i}>{s.slice(2,-2)}</strong>
-    return s
-  })
 }
 
 function ThinkDots() {

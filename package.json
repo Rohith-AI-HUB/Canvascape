@@ -13,7 +13,9 @@
   "dependencies": {
     "@reactflow/core": "^11.11.3",
     "framer-motion": "^11.0.0",
+    "react-markdown": "^10.1.0",
     "reactflow": "^11.11.3",
+    "remark-gfm": "^4.0.1",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
