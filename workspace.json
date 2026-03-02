@@ -1,0 +1,25 @@
+{
+  "nodes": [],
+  "edges": [],
+  "viewport": {
+    "x": 105.44035707640887,
+    "y": 147.9768989831408,
+    "zoom": 0.75915705646284
+  },
+  "categories": [
+    {
+      "id": "cat_work",
+      "label": "Work",
+      "color": "#A78BFA",
+      "bg": "rgba(167,139,250,0.08)"
+    },
+    {
+      "id": "cat_personal",
+      "label": "Personal",
+      "color": "#34D399",
+      "bg": "rgba(52,211,153,0.08)"
+    }
+  ],
+  "version": 2,
+  "savedAt": 1772431002845
+}

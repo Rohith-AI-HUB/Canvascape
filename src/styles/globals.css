@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  font-family: 'DM Sans', sans-serif;
+  background-color: #F5F0EB;
+  color: #3D3552;
+}
+
+.canvas-bg {
+  background-color: #F5F0EB;
+  background-image: radial-gradient(circle, #C8BDDB 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.react-flow__minimap {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(120, 100, 180, 0.15);
+  box-shadow: 0 4px 16px rgba(80, 60, 140, 0.10);
+}
+
+.react-flow__controls { display: none; }
+.react-flow__attribution { display: none; }
+
+.react-flow__selection {
+  background: rgba(124, 111, 205, 0.06);
+  border: 1.5px dashed rgba(124, 111, 205, 0.4);
+  border-radius: 8px;
+}
+
+.node-drag-handle { cursor: grab; }
+.node-drag-handle:active { cursor: grabbing; }
+
+webview {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 100, 180, 0.25);
+  border-radius: 999px;
+}
+
+.titlebar-drag { -webkit-app-region: drag; }
+.titlebar-no-drag { -webkit-app-region: no-drag; }
+
+.group-frame {
+  background: rgba(255, 255, 255, 0.35);
+  border: 2px dashed rgba(124, 111, 205, 0.25);
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+}
